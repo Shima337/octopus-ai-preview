@@ -1,8 +1,11 @@
 import { MISSIONS, getMission } from './missions.js';
 import { createInitialState, transition } from './game-state.js';
+import { loadProgress, resetProgress, saveProgress } from './storage.js';
+import { canSpeak, speak, stopSpeaking } from './speech.js';
 
 const app = document.querySelector('#app');
-let state = createInitialState();
+let state = createInitialState(loadProgress());
+let resetPanelOpen = false;
 
 function escapeHtml(value) {
   return String(value)
@@ -52,6 +55,23 @@ function renderHome() {
       </button>`;
   }).join('');
 
+  const resetControl = state.completed.length
+    ? '<button class="text-button" type="button" data-action="OPEN_RESET">Сбросить значки</button>'
+    : '';
+  const resetPanel = resetPanelOpen
+    ? `<div class="reset-overlay" data-reset-panel role="dialog" aria-modal="true" aria-labelledby="reset-title">
+        <div class="reset-panel">
+          <span class="reset-icon" aria-hidden="true">🔄</span>
+          <h2 id="reset-title">Начать приключения заново?</h2>
+          <p>Все три значка исчезнут, но миссии можно будет пройти ещё раз.</p>
+          <div class="reset-actions">
+            <button class="secondary-button" type="button" data-action="CANCEL_RESET">Оставить значки</button>
+            <button class="primary-button" type="button" data-action="CONFIRM_RESET">Начать заново</button>
+          </div>
+        </div>
+      </div>`
+    : '';
+
   return chrome(`
     <section class="home-screen screen" data-screen="home">
       <div class="hero-heading">
@@ -61,6 +81,8 @@ function renderHome() {
       </div>
       <div class="mission-grid">${cards}</div>
       <div class="home-tip"><span aria-hidden="true">💡</span><p><strong>Главный секрет:</strong> если в интернете страшно, странно или слишком срочно — остановись и позови взрослого.</p></div>
+      <div class="home-tools">${resetControl}</div>
+      ${resetPanel}
     </section>`);
 }
 
@@ -81,6 +103,9 @@ function character(mission, mood = 'ready') {
 }
 
 function renderIntro(mission) {
+  const listenButton = canSpeak()
+    ? `<button class="listen-button" type="button" data-action="LISTEN" data-speech="${escapeHtml(mission.intro.speech)}"><span aria-hidden="true">🔊</span> Послушать героя</button>`
+    : '';
   return chrome(`
     <section class="story-screen screen two-column" data-screen="intro">
       <div class="story-copy">
@@ -89,6 +114,7 @@ function renderIntro(mission) {
         <h1 tabindex="-1">${escapeHtml(mission.intro.title)}</h1>
         <p class="lead">${escapeHtml(mission.intro.text)}</p>
         <div class="speech-bubble"><span aria-hidden="true">💬</span><p>«${escapeHtml(mission.intro.speech)}»</p></div>
+        ${listenButton}
         <button class="primary-button" type="button" data-action="START">Принять миссию <span aria-hidden="true">→</span></button>
       </div>
       <div class="story-visual">${character(mission)}</div>
@@ -202,11 +228,39 @@ app.addEventListener('click', (event) => {
   if (!control) return;
 
   const action = control.dataset.action;
+  if (action === 'LISTEN') {
+    speak(control.dataset.speech ?? '');
+    control.classList.add('is-speaking');
+    return;
+  }
+  stopSpeaking();
+
+  if (action === 'OPEN_RESET') {
+    resetPanelOpen = true;
+    render();
+    requestAnimationFrame(() => app.querySelector('[data-reset-panel] h2')?.focus());
+    return;
+  }
+  if (action === 'CANCEL_RESET') {
+    resetPanelOpen = false;
+    render();
+    return;
+  }
+  if (action === 'CONFIRM_RESET') {
+    resetProgress();
+    state = createInitialState();
+    resetPanelOpen = false;
+    render();
+    return;
+  }
+
   const payload = { type: action };
   if (control.dataset.missionId) payload.missionId = control.dataset.missionId;
   if (control.dataset.clueId) payload.clueId = control.dataset.clueId;
   if (control.dataset.actionId) payload.actionId = control.dataset.actionId;
+  const previousCompleted = state.completed.join('|');
   state = transition(state, payload);
+  if (state.completed.join('|') !== previousCompleted) saveProgress(state.completed);
   render();
 });
 
