@@ -1,9 +1,12 @@
-import { PLACES, RISK_META, VIDEOS, WARMUP_CARDS, getCase, getPlace, getVideo } from './content.js';
+import { PLACES, RISK_META, SHIELD_STEPS, WARMUP_CARDS, getCase, getPlace, getVideo } from './content.js';
 import { createInitialState, transition } from './lesson-state.js';
+import { loadLesson, resetLesson, saveLesson } from './storage.js';
+import { getVideoModel } from './video.js';
 
 const app = document.querySelector('#app');
-let state = createInitialState();
+let state = loadLesson();
 let previousScreen = null;
+let restartPanelOpen = false;
 
 const escapeHtml = (value) => String(value)
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -49,11 +52,12 @@ function renderWelcome() {
 }
 
 function videoSlot(video, screenName) {
+  const model = getVideoModel(video);
+  const media = model.mode === 'player'
+    ? `<video class="video-player" controls preload="metadata"><source src="${escapeHtml(model.source)}">${model.captions ? `<track kind="captions" srclang="ru" label="Русские субтитры" src="${escapeHtml(model.captions)}" default>` : ''}</video>`
+    : `<div class="video-orb" aria-hidden="true"><span>▶</span><i></i><i></i><i></i></div><div class="video-status">Видеослот готов</div>`;
   return chrome(`<section class="screen video-screen" data-screen="${screenName}" data-video-id="${video.id}">
-    <div class="video-stage">
-      <div class="video-orb" aria-hidden="true"><span>▶</span><i></i><i></i><i></i></div>
-      <div class="video-status">Видеослот готов</div>
-    </div>
+    <div class="video-stage">${media}</div>
     <div class="video-copy">
       <p class="eyebrow">Будущий ролик · ${escapeHtml(video.duration)}</p>
       <h1 tabindex="-1">${escapeHtml(video.title)}</h1>
@@ -114,10 +118,53 @@ function renderCaseClues() {
     const selected = state.selectedClues.includes(clue.id);
     return `<button class="clue ${selected ? 'selected' : ''}" type="button" data-action="TOGGLE_CASE_CLUE" data-clue-id="${clue.id}" aria-pressed="${selected}"><span>${selected ? '✓' : '?'}</span>${escapeHtml(clue.label)}</button>`;
   }).join('');
-  return chrome(`<section class="screen case-screen" data-screen="case-clues">
+  return chrome(`<section class="screen case-screen" data-screen="case-clues" data-case-id="${caseItem.id}">
     <div class="case-kicker"><span>${place.icon} ${escapeHtml(place.title)}</span><b>${state.caseIndex + 1}/3</b></div>
     <div class="section-head"><p class="eyebrow">${meta.icon} ${escapeHtml(meta.title)}</p><h1 tabindex="-1">${escapeHtml(caseItem.title)}</h1><p>Найди три сигнала, которые требуют остановиться и подумать.</p></div>
     <div class="case-layout"><article class="message"><header><span>${place.icon}</span><div><strong>${escapeHtml(caseItem.sender)}</strong><small>${escapeHtml(caseItem.status)}</small></div><i>•••</i></header><p>${escapeHtml(caseItem.message)}</p></article><div class="clue-panel"><h2>Что настораживает?</h2><div class="clue-list">${clues}</div>${state.clueHintVisible ? '<div class="map-hint">🔎 Попробуй найти все три важных сигнала.</div>' : ''}<button class="primary wide" type="button" data-action="SUBMIT_CASE_CLUES">Проверить сигналы</button></div></div>
+  </section>`);
+}
+
+function renderCaseDecision() {
+  const caseItem = getCase(state.selectedCases[state.caseIndex]);
+  const place = getPlace(caseItem.placeId);
+  const meta = RISK_META[caseItem.risk];
+  const actions = caseItem.actions.map((action) => `<button class="decision-card" type="button" data-action="CHOOSE_CASE_ACTION" data-action-id="${action.id}"><span aria-hidden="true">${action.icon}</span><strong>${escapeHtml(action.label)}</strong><i aria-hidden="true">→</i></button>`).join('');
+  return chrome(`<section class="screen decision-screen" data-screen="case-decision" data-case-id="${caseItem.id}">
+    <div class="case-kicker"><span>${place.icon} ${escapeHtml(place.title)}</span><b>${state.caseIndex + 1}/3</b></div>
+    <div class="decision-layout"><div><p class="eyebrow">${meta.icon} Решение путешественника</p><h1 tabindex="-1">Что сделать дальше?</h1><p class="lead">Выбери самый безопасный следующий шаг. Здесь можно пробовать и менять решение.</p><div class="decision-list">${actions}</div></div><div class="decision-art" aria-hidden="true"><span>${place.icon}</span><i>${meta.icon}</i></div></div>
+  </section>`);
+}
+
+function renderCaseFeedback() {
+  const caseItem = getCase(state.selectedCases[state.caseIndex]);
+  const action = caseItem.actions.find((item) => item.id === state.lastActionId);
+  const correct = state.lastAnswerCorrect;
+  return chrome(`<section class="screen feedback-screen" data-screen="case-feedback" data-case-id="${caseItem.id}">
+    <div class="feedback-card ${correct ? 'success' : 'try-again'}"><div class="feedback-icon" aria-hidden="true">${correct ? RISK_META[caseItem.risk].icon : '💡'}</div><p class="eyebrow">${correct ? 'Кристалл почти твой' : 'Хорошая попытка'}</p><h1 tabindex="-1">${correct ? 'Безопасное решение!' : 'Давай проверим ещё раз'}</h1><p>${escapeHtml(action?.feedback ?? '')}</p><button class="primary centered" type="button" data-action="${correct ? 'CONTINUE_CASE' : 'RETRY_CASE'}">${correct ? 'Забрать кристалл' : 'Вернуться к выбору'} <span aria-hidden="true">→</span></button></div>
+  </section>`);
+}
+
+function renderShield() {
+  const chosen = state.shieldSelected.map((id) => SHIELD_STEPS.find((item) => item.id === id));
+  const order = ['tell', 'save', 'stop', 'block', 'dont'];
+  const choices = order.map((id) => SHIELD_STEPS.find((item) => item.id === id)).filter((item) => !state.shieldSelected.includes(item.id)).map((item) => `<button class="shield-choice" type="button" data-action="SELECT_SHIELD_STEP" data-shield-step="${item.id}"><span aria-hidden="true">${item.icon}</span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.text)}</small></button>`).join('');
+  return chrome(`<section class="screen shield-screen" data-screen="shield">
+    <div class="section-head"><p class="eyebrow">Игра 4 · Финальная тренировка</p><h1 tabindex="-1">Собери Щит путешественника</h1><p>Выбирай следующий шаг по порядку. Первый вопрос: что нужно сделать сразу?</p></div>
+    <div class="shield-slots">${SHIELD_STEPS.map((step, index) => { const item = chosen[index]; return `<div class="shield-slot ${item ? 'filled' : ''}"><b>${index + 1}</b>${item ? `<span>${item.icon}</span><strong>${escapeHtml(item.title)}</strong>` : '<small>Выбери шаг</small>'}</div>`; }).join('')}</div>
+    ${state.shieldHintVisible ? '<div class="map-hint centered-hint" data-shield-hint>💡 Пока не этот шаг. Сначала остановись и не действуй в спешке.</div>' : ''}
+    <div class="shield-choices">${choices}</div>
+  </section>`);
+}
+
+function renderFinal() {
+  const places = state.selectedPlaces.slice(0, 3).map(getPlace).filter(Boolean);
+  const crystals = state.crystals.map((id) => RISK_META[id]).filter(Boolean);
+  const restartPanel = restartPanelOpen ? `<div class="restart-overlay" data-restart-panel role="dialog" aria-modal="true" aria-labelledby="restart-title"><div class="restart-panel"><span aria-hidden="true">🗺️</span><h2 id="restart-title" tabindex="-1">Построить новую карту?</h2><p>Текущая карта и кристаллы начнутся заново.</p><div><button class="secondary" type="button" data-action="CANCEL_RESTART">Оставить эту карту</button><button class="primary" type="button" data-action="CONFIRM_RESTART">Начать заново</button></div></div></div>` : '';
+  return chrome(`<section class="screen final-screen" data-screen="final">
+    <div class="final-hero"><span aria-hidden="true">🧭</span><p class="eyebrow">Занятие завершено</p><h1 tabindex="-1">Цифровой путешественник</h1><p>Твоя карта стала безопаснее, а Щит готов помочь в новой ситуации.</p></div>
+    <div class="final-grid"><div class="final-map"><h2>Моя цифровая карта</h2><div>${places.map((place) => `<article data-final-place><span>${place.icon}</span><strong>${escapeHtml(place.title)}</strong><p>${escapeHtml(place.rule)}</p></article>`).join('')}</div></div><div class="final-side"><section><h2>Четыре кристалла</h2><div class="final-crystals">${crystals.map((item) => `<span title="${escapeHtml(item.crystal)}">${item.icon}</span>`).join('')}</div></section><section class="shield-summary"><h2>Мой алгоритм</h2><ol>${SHIELD_STEPS.map((step) => `<li><span>${step.icon}</span><strong>${escapeHtml(step.title)}</strong></li>`).join('')}</ol></section></div></div>
+    <button class="secondary restart-button" type="button" data-action="OPEN_RESTART">Пройти с другой картой</button>${restartPanel}
   </section>`);
 }
 
@@ -129,7 +176,12 @@ function render() {
   else if (state.screen === 'warmup-result') html = renderWarmupResult();
   else if (state.screen === 'map') html = renderMap();
   else if (state.screen === 'expedition-video') html = videoSlot(getVideo(getCase(state.selectedCases[state.caseIndex])?.videoId), 'expedition-video');
-  else html = renderCaseClues();
+  else if (state.screen === 'case-clues') html = renderCaseClues();
+  else if (state.screen === 'case-decision') html = renderCaseDecision();
+  else if (state.screen === 'case-feedback') html = renderCaseFeedback();
+  else if (state.screen === 'shield') html = renderShield();
+  else if (state.screen === 'final-video') html = videoSlot(getVideo('safer-map'), 'final-video');
+  else html = renderFinal();
   app.innerHTML = html;
   if (previousScreen !== state.screen) window.scrollTo(0, 0);
   previousScreen = state.screen;
@@ -139,11 +191,17 @@ function render() {
 app.addEventListener('click', (event) => {
   const control = event.target.closest('[data-action]');
   if (!control) return;
+  if (control.dataset.action === 'OPEN_RESTART') { restartPanelOpen = true; render(); return; }
+  if (control.dataset.action === 'CANCEL_RESTART') { restartPanelOpen = false; render(); return; }
+  if (control.dataset.action === 'CONFIRM_RESTART') { resetLesson(); state = transition(state, { type: 'RESTART' }); restartPanelOpen = false; render(); return; }
   const payload = { type: control.dataset.action };
   if (control.dataset.warmupAnswer) payload.answer = control.dataset.warmupAnswer;
   if (control.dataset.placeId) payload.placeId = control.dataset.placeId;
   if (control.dataset.clueId) payload.clueId = control.dataset.clueId;
+  if (control.dataset.actionId) payload.actionId = control.dataset.actionId;
+  if (control.dataset.shieldStep) payload.stepId = control.dataset.shieldStep;
   state = transition(state, payload);
+  saveLesson(state);
   render();
 });
 
