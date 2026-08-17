@@ -185,7 +185,12 @@ function render() {
   app.innerHTML = html;
   if (previousScreen !== state.screen) window.scrollTo(0, 0);
   previousScreen = state.screen;
-  requestAnimationFrame(() => app.querySelector('h1[tabindex="-1"]')?.focus({ preventScroll: true }));
+  requestAnimationFrame(() => {
+    const focusTarget = restartPanelOpen
+      ? app.querySelector('#restart-title')
+      : app.querySelector('h1[tabindex="-1"]');
+    focusTarget?.focus({ preventScroll: true });
+  });
 }
 
 app.addEventListener('click', (event) => {

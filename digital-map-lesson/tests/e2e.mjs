@@ -9,6 +9,15 @@ const browser = await chromium.launch({ headless: true });
 
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const consoleErrors = [];
+  const externalRequests = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (!['127.0.0.1', 'localhost'].includes(url.hostname)) externalRequests.push(request.url());
+  });
   await page.goto(baseUrl);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
@@ -77,13 +86,36 @@ try {
   assert.equal(await page.locator('[data-screen="final"]').count(), 1);
   assert.match(await page.locator('.crystal-counter').innerText(), /4\/4/);
   assert.equal(await page.locator('[data-final-place]').count(), 3);
+  assert.equal(await page.locator('h1:visible').count(), 1);
+  assert.equal(await page.locator('button:visible').evaluateAll((buttons) => buttons.filter((button) => !(button.getAttribute('aria-label') || button.textContent.trim())).length), 0);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
+  assert.equal(await page.locator('h1').evaluate((element) => getComputedStyle(element).outlineStyle), 'none');
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
+  assert.equal(await page.locator('.final-grid').evaluate((element) => element.getBoundingClientRect().width <= document.documentElement.clientWidth), true);
+  await page.setViewportSize({ width: 1280, height: 800 });
 
   await page.reload();
   assert.equal(await page.locator('[data-screen="final"]').count(), 1);
   await page.locator('[data-action="OPEN_RESTART"]').click();
   assert.equal(await page.locator('[data-restart-panel]').count(), 1);
+  await page.waitForFunction(() => document.activeElement?.id === 'restart-title');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'restart-title');
   await page.locator('[data-action="CONFIRM_RESTART"]').click();
   assert.equal(await page.locator('[data-screen="welcome"]').count(), 1);
+
+  const mobilePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mobilePage.goto(baseUrl);
+  await mobilePage.evaluate(() => localStorage.clear());
+  await mobilePage.reload();
+  assert.equal(await mobilePage.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
+  await mobilePage.locator('[data-action="START"]').focus();
+  await mobilePage.keyboard.press('Enter');
+  assert.equal(await mobilePage.locator('[data-screen="video-intro"]').count(), 1);
+  await mobilePage.close();
+
+  assert.deepEqual(consoleErrors, []);
+  assert.deepEqual(externalRequests, []);
 } finally {
   await browser.close();
 }
