@@ -28,6 +28,9 @@ button:focus-visible, [tabindex]:focus-visible {
   outline-offset: 4px;
 }
 
+h1[tabindex="-1"]:focus-visible,
+.reset-panel h2[tabindex="-1"]:focus-visible { outline: none; }
+
 .ambient { position: fixed; border-radius: 50%; filter: blur(90px); opacity: .22; pointer-events: none; }
 .ambient-one { width: 320px; height: 320px; background: #654cff; top: -140px; left: -120px; }
 .ambient-two { width: 380px; height: 380px; background: #39d7ff; right: -180px; bottom: -160px; }

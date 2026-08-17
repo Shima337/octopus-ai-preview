@@ -6,6 +6,7 @@ import { canSpeak, speak, stopSpeaking } from './speech.js';
 const app = document.querySelector('#app');
 let state = createInitialState(loadProgress());
 let resetPanelOpen = false;
+let lastRenderedScreen = null;
 
 function escapeHtml(value) {
   return String(value)
@@ -62,7 +63,7 @@ function renderHome() {
     ? `<div class="reset-overlay" data-reset-panel role="dialog" aria-modal="true" aria-labelledby="reset-title">
         <div class="reset-panel">
           <span class="reset-icon" aria-hidden="true">🔄</span>
-          <h2 id="reset-title">Начать приключения заново?</h2>
+          <h2 id="reset-title" tabindex="-1">Начать приключения заново?</h2>
           <p>Все три значка исчезнут, но миссии можно будет пройти ещё раз.</p>
           <div class="reset-actions">
             <button class="secondary-button" type="button" data-action="CANCEL_RESET">Оставить значки</button>
@@ -206,6 +207,7 @@ function renderReward(mission) {
 function render() {
   const mission = getMission(state.missionId);
   const screen = state.screen;
+  const screenChanged = screen !== lastRenderedScreen;
   const html = screen === 'home' || !mission
     ? renderHome()
     : screen === 'intro'
@@ -220,7 +222,14 @@ function render() {
 
   app.innerHTML = html;
   document.body.dataset.mission = mission?.id ?? 'home';
-  requestAnimationFrame(() => app.querySelector('h1[tabindex="-1"]')?.focus({ preventScroll: true }));
+  if (screenChanged) window.scrollTo(0, 0);
+  lastRenderedScreen = screen;
+  requestAnimationFrame(() => {
+    const focusTarget = resetPanelOpen
+      ? app.querySelector('[data-reset-panel] h2')
+      : app.querySelector('h1[tabindex="-1"]');
+    focusTarget?.focus({ preventScroll: true });
+  });
 }
 
 app.addEventListener('click', (event) => {
@@ -238,7 +247,6 @@ app.addEventListener('click', (event) => {
   if (action === 'OPEN_RESET') {
     resetPanelOpen = true;
     render();
-    requestAnimationFrame(() => app.querySelector('[data-reset-panel] h2')?.focus());
     return;
   }
   if (action === 'CANCEL_RESET') {

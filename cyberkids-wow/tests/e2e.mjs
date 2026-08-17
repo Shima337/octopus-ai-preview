@@ -22,6 +22,19 @@ try {
   await page.reload();
   assert.equal(await page.locator('[data-screen="home"]').count(), 1);
   assert.equal(await page.locator('[data-mission-id]').count(), 3);
+  assert.equal(await page.locator('[data-screen] h1:visible').count(), 1);
+  await page.waitForFunction(() => document.activeElement?.tagName === 'H1');
+  assert.equal(await page.locator('h1[tabindex="-1"]').evaluate((heading) => getComputedStyle(heading).outlineStyle), 'none');
+
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.locator('[data-mission-id="cybercat"]').click();
+  assert.equal(await page.evaluate(() => window.scrollY), 0);
+  await page.locator('[data-action="HOME"]').click();
+
+  await page.locator('[data-mission-id="cybercat"]').focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('[data-screen="intro"]').count(), 1);
+  await page.locator('[data-action="HOME"]').click();
 
   const paths = [
     {
@@ -45,6 +58,7 @@ try {
   for (const mission of paths) {
     await page.locator(`[data-mission-id="${mission.id}"]`).click();
     assert.equal(await page.locator('[data-screen="intro"]').count(), 1);
+    assert.equal(await page.locator('[data-screen] h1:visible').count(), 1);
     await page.locator('[data-action="START"]').click();
     for (const clueId of mission.clues) {
       await page.locator(`[data-clue-id="${clueId}"]`).click();
@@ -74,8 +88,23 @@ try {
 
   await page.locator('[data-action="OPEN_RESET"]').click();
   assert.equal(await page.locator('[data-reset-panel]').count(), 1);
+  await page.waitForFunction(() => Boolean(document.activeElement?.closest('[data-reset-panel]')));
+  assert.equal(await page.evaluate(() => Boolean(document.activeElement?.closest('[data-reset-panel]'))), true);
   await page.locator('[data-action="CONFIRM_RESET"]').click();
   assert.match(await page.locator('.score-pill').innerText(), /0\/3/);
+
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+    await page.setViewportSize(viewport);
+    await page.reload();
+    const metrics = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+      unnamedControls: [...document.querySelectorAll('button, a, input')]
+        .filter((element) => !(element.getAttribute('aria-label') || element.textContent.trim())).length,
+    }));
+    assert.ok(metrics.scrollWidth <= metrics.innerWidth, JSON.stringify({ viewport, metrics }));
+    assert.equal(metrics.unnamedControls, 0);
+  }
 
   assert.deepEqual(consoleErrors, []);
   assert.deepEqual(externalRequests, []);
