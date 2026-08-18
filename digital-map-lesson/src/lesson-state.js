@@ -159,6 +159,10 @@ export function transition(state, event) {
     }
     case 'FINISH_VOICE':
       return state.screen === 'voice-live' ? { ...state, voiceStatus: 'evaluating' } : state;
+    case 'RETURN_VOICE_PREPARE':
+      return state.screen === 'voice-live'
+        ? { ...state, screen: 'voice-prepare', voiceMode: null, voiceStatus: 'idle', voiceTurns: [], voiceEvaluation: null }
+        : state;
     case 'SET_VOICE_EVALUATION':
       return ['voice-live', 'voice-prepare'].includes(state.screen) && event.evaluation
         ? { ...state, screen: 'voice-result', voiceStatus: 'ended', voiceEvaluation: event.evaluation }

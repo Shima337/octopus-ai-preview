@@ -1,13 +1,22 @@
 import { PLACES, RISK_META, SHIELD_STEPS, WARMUP_CARDS, getCase, getPlace, getVideo } from './content.js';
 import { chooseChatReply, evaluateChatChoices, getChatNode } from './chat-scenario.js';
 import { createInitialState, transition } from './lesson-state.js';
+import { createRealtimeClient } from './realtime-client.js';
 import { loadLesson, resetLesson, saveLesson } from './storage.js';
 import { getVideoModel } from './video.js';
+import { createVoiceApi } from './voice-api.js';
+import { VOICE_SCENARIO, evaluateDemoVoice, getDemoMentorTurn, getDemoReplyOptions } from './voice-scenario.js';
 
 const app = document.querySelector('#app');
 let state = loadLesson();
 let previousScreen = null;
 let restartPanelOpen = false;
+let voiceAvailability = 'checking';
+let voiceError = null;
+let voiceMuted = false;
+let realtimeClient = null;
+let voiceTimer = null;
+const voiceApi = createVoiceApi();
 
 const escapeHtml = (value) => String(value)
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -184,6 +193,52 @@ function renderCaseFeedback() {
   </section>`);
 }
 
+const VOICE_STATUS_LABELS = {
+  connecting: 'Подключаем наставника…',
+  'mentor-speaking': 'Наставник говорит',
+  listening: 'Наставник слушает',
+  evaluating: 'Готовим разбор…',
+  ended: 'Разговор завершён',
+  error: 'Связь прервалась',
+};
+
+function renderVoicePrepare() {
+  const liveReady = voiceAvailability === 'openai';
+  const liveLabel = voiceAvailability === 'checking' ? 'Проверяем голос…' : liveReady ? 'Поговорить голосом' : 'Голос появится после подключения ключа';
+  return chrome(`<section class="screen voice-prepare" data-screen="voice-prepare">
+    <div class="voice-intro"><div class="mentor-orb" aria-hidden="true">🦉<i></i><i></i></div><div><p class="eyebrow">Игра 5 · Один голосовой диалог</p><h1 tabindex="-1">${escapeHtml(VOICE_SCENARIO.title)}</h1><p class="lead">Наставник задаст несколько коротких вопросов, а в конце покажет, какие части цифрового щита уже получились.</p></div></div>
+    <article class="voice-situation"><span aria-hidden="true">🎁</span><div><strong>Вымышленная ситуация</strong><p>${escapeHtml(VOICE_SCENARIO.message)}</p></div></article>
+    <div class="privacy-reminder"><span aria-hidden="true">🔒</span><p><strong>Перед микрофоном:</strong> ${escapeHtml(VOICE_SCENARIO.privacyReminder)}</p></div>
+    ${voiceError ? `<div class="voice-error" role="status">Связь или микрофон недоступны. Можно повторить попытку или пройти демоверсию.</div>` : ''}
+    <div class="voice-mode-grid"><button class="primary voice-mode" type="button" data-action="START_VOICE_LIVE" data-voice-mode="live" ${liveReady ? '' : 'disabled'}><span aria-hidden="true">🎙️</span><strong>${escapeHtml(liveLabel)}</strong><small>${liveReady ? 'Живой разговор через OpenAI' : 'Без ключа доступна демоверсия'}</small></button><button class="secondary voice-mode" type="button" data-action="START_VOICE_DEMO" data-voice-mode="demo"><span aria-hidden="true">✨</span><strong>Открыть демоверсию</strong><small>Тот же сценарий с готовыми репликами</small></button></div>
+  </section>`);
+}
+
+function renderVoiceLive() {
+  const isDemo = state.voiceMode === 'demo';
+  const userTurns = state.voiceTurns.filter((turn) => turn.role === 'user');
+  const demoIndex = userTurns.length;
+  const mentorTurn = isDemo ? getDemoMentorTurn(demoIndex) : [...state.voiceTurns].reverse().find((turn) => turn.role === 'assistant') ?? { text: VOICE_SCENARIO.questions[0] };
+  const demoReplies = isDemo ? getDemoReplyOptions(demoIndex) : [];
+  const history = userTurns.map((turn) => `<li><span aria-hidden="true">🧭</span><p>${escapeHtml(turn.text)}</p></li>`).join('');
+  return chrome(`<section class="screen voice-live" data-screen="voice-live" data-mode="${escapeHtml(state.voiceMode)}">
+    <div class="voice-live-head"><div><p class="eyebrow">${isDemo ? 'Демоверсия разговора' : 'Живой разговор'}</p><h1 tabindex="-1">Цифровой наставник</h1></div><div class="voice-status" data-voice-status="${escapeHtml(state.voiceStatus)}"><span aria-hidden="true"></span>${escapeHtml(isDemo ? `Вопрос ${Math.min(demoIndex + 1, 3)} из 3` : VOICE_STATUS_LABELS[state.voiceStatus] ?? 'Разговор')}</div></div>
+    <div class="voice-stage"><div class="mentor-speaking" aria-hidden="true"><b>🦉</b><i></i><i></i><i></i></div><article aria-live="polite"><strong>Наставник спрашивает:</strong><p>${escapeHtml(mentorTurn?.text ?? 'Спасибо! Сейчас посмотрим результат.')}</p></article></div>
+    ${history ? `<ol class="voice-history" aria-label="Твои ответы">${history}</ol>` : ''}
+    ${isDemo ? `<div class="demo-replies">${demoReplies.map((reply) => `<button type="button" data-action="DEMO_VOICE_REPLY" data-demo-reply="${escapeHtml(reply.id)}">${escapeHtml(reply.text)}</button>`).join('')}</div>` : `<div class="voice-controls"><button class="secondary" type="button" data-action="TOGGLE_VOICE_MUTE" aria-pressed="${voiceMuted}">${voiceMuted ? '🎙️ Включить микрофон' : '🔇 Выключить микрофон'}</button><button class="primary" type="button" data-action="END_VOICE">Завершить и получить разбор</button></div>`}
+  </section>`);
+}
+
+function renderVoiceResult() {
+  const evaluation = state.voiceEvaluation ?? evaluateDemoVoice(state.voiceTurns);
+  const criteria = [
+    ['signals', '🚨', VOICE_SCENARIO.criteria.signals],
+    ['safeAction', '🛑', VOICE_SCENARIO.criteria.safeAction],
+    ['trustedAdult', '🤝', VOICE_SCENARIO.criteria.trustedAdult],
+  ];
+  return chrome(`<section class="screen voice-result" data-screen="voice-result"><div class="voice-result-card"><div class="voice-result-mark" aria-hidden="true">🎙️</div><p class="eyebrow">Разговор завершён</p><h1 tabindex="-1">Вот что получилось</h1><div class="voice-criteria">${criteria.map(([key, icon, label]) => { const item = evaluation[key]; return `<article data-criterion="${key}" data-met="${item.met}" class="${item.met ? 'met' : 'remember'}"><span aria-hidden="true">${item.met ? '✓' : icon}</span><div><strong>${escapeHtml(label)}</strong><p>${escapeHtml(item.feedback)}</p></div></article>`; }).join('')}</div><p class="voice-summary">${escapeHtml(evaluation.summary)}</p><button class="primary centered" type="button" data-action="CONTINUE_VOICE">Собрать финальный щит <span aria-hidden="true">→</span></button></div></section>`);
+}
+
 function renderShield() {
   const chosen = state.shieldSelected.map((id) => SHIELD_STEPS.find((item) => item.id === id));
   const order = ['tell', 'save', 'stop', 'block', 'dont'];
@@ -220,6 +275,9 @@ function render() {
   else if (state.screen === 'case-clues') html = renderCaseClues();
   else if (state.screen === 'case-decision') html = renderCaseDecision();
   else if (state.screen === 'case-feedback') html = renderCaseFeedback();
+  else if (state.screen === 'voice-prepare') html = renderVoicePrepare();
+  else if (state.screen === 'voice-live') html = renderVoiceLive();
+  else if (state.screen === 'voice-result') html = renderVoiceResult();
   else if (state.screen === 'shield') html = renderShield();
   else if (state.screen === 'final-video') html = videoSlot(getVideo('safer-map'), 'final-video');
   else html = renderFinal();
@@ -234,7 +292,54 @@ function render() {
   });
 }
 
-app.addEventListener('click', (event) => {
+function storeAndRender() {
+  saveLesson(state);
+  render();
+}
+
+async function finishVoice() {
+  if (state.screen !== 'voice-live') return;
+  clearTimeout(voiceTimer);
+  realtimeClient?.close();
+  realtimeClient = null;
+  state = transition(state, { type: 'FINISH_VOICE' });
+  storeAndRender();
+  let evaluation;
+  try {
+    evaluation = state.voiceMode === 'live' && state.voiceTurns.some((turn) => turn.role === 'user')
+      ? await voiceApi.evaluate(state.voiceTurns)
+      : evaluateDemoVoice(state.voiceTurns);
+  } catch {
+    evaluation = evaluateDemoVoice(state.voiceTurns);
+  }
+  state = transition(state, { type: 'SET_VOICE_EVALUATION', evaluation });
+  storeAndRender();
+}
+
+async function startLiveVoice() {
+  voiceError = null;
+  voiceMuted = false;
+  state = transition(state, { type: 'START_VOICE_LIVE' });
+  storeAndRender();
+  realtimeClient = createRealtimeClient();
+  try {
+    await realtimeClient.connect({
+      createSession: (sdp) => voiceApi.createSession(sdp),
+      onStatus: (status) => { state = transition(state, { type: 'SET_VOICE_STATUS', status }); storeAndRender(); },
+      onTurn: (turn) => { state = transition(state, { type: 'ADD_VOICE_TURN', turn }); storeAndRender(); },
+      onError: () => {},
+    });
+    voiceTimer = setTimeout(() => finishVoice(), 90_000);
+  } catch {
+    realtimeClient?.close();
+    realtimeClient = null;
+    voiceError = true;
+    state = transition(state, { type: 'RETURN_VOICE_PREPARE' });
+    storeAndRender();
+  }
+}
+
+app.addEventListener('click', async (event) => {
   const control = event.target.closest('[data-action]');
   if (!control) return;
   if (control.dataset.action === 'OPEN_RESTART') { restartPanelOpen = true; render(); return; }
@@ -249,6 +354,22 @@ app.addEventListener('click', (event) => {
     render();
     return;
   }
+  if (control.dataset.action === 'START_VOICE_LIVE') { await startLiveVoice(); return; }
+  if (control.dataset.action === 'START_VOICE_DEMO') { state = transition(state, { type: 'START_VOICE_DEMO' }); storeAndRender(); return; }
+  if (control.dataset.action === 'DEMO_VOICE_REPLY') {
+    const index = state.voiceTurns.filter((turn) => turn.role === 'user').length;
+    const reply = getDemoReplyOptions(index).find((item) => item.id === control.dataset.demoReply);
+    if (!reply) return;
+    state = transition(state, { type: 'ADD_VOICE_TURN', turn: { role: 'user', text: reply.text } });
+    if (getDemoMentorTurn(index + 1)) storeAndRender();
+    else {
+      state = transition(state, { type: 'SET_VOICE_EVALUATION', evaluation: evaluateDemoVoice(state.voiceTurns) });
+      storeAndRender();
+    }
+    return;
+  }
+  if (control.dataset.action === 'TOGGLE_VOICE_MUTE') { voiceMuted = !voiceMuted; realtimeClient?.setMuted(voiceMuted); render(); return; }
+  if (control.dataset.action === 'END_VOICE') { await finishVoice(); return; }
   const payload = { type: control.dataset.action };
   if (control.dataset.warmupAnswer) payload.answer = control.dataset.warmupAnswer;
   if (control.dataset.placeId) payload.placeId = control.dataset.placeId;
@@ -261,3 +382,8 @@ app.addEventListener('click', (event) => {
 });
 
 render();
+voiceApi.health().then(({ realtime }) => {
+  voiceAvailability = realtime;
+  if (state.screen === 'voice-prepare') render();
+});
+window.addEventListener('beforeunload', () => realtimeClient?.close());

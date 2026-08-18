@@ -58,6 +58,11 @@ test('live voice events store only normalized turns and status', () => {
 
   const unchanged = transition(state, { type: 'ADD_VOICE_TURN', turn: { role: 'system', text: 'secret' } });
   assert.deepEqual(unchanged, state);
+
+  state = transition(state, { type: 'RETURN_VOICE_PREPARE' });
+  assert.equal(state.screen, 'voice-prepare');
+  assert.equal(state.voiceMode, null);
+  assert.deepEqual(state.voiceTurns, []);
 });
 
 test('warmup records all six answers and awards awareness crystal', () => {

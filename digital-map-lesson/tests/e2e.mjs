@@ -82,6 +82,15 @@ try {
     await page.locator('[data-action="CONTINUE_CASE"]').click();
   }
 
+  assert.equal(await page.locator('[data-screen="voice-prepare"]').count(), 1);
+  await page.locator('[data-voice-mode="demo"]').click();
+  for (const replyId of ['spot-secret', 'refuse-link', 'tell-adult']) {
+    assert.equal(await page.locator('[data-screen="voice-live"][data-mode="demo"]').count(), 1);
+    await page.locator(`[data-demo-reply="${replyId}"]`).click();
+  }
+  assert.equal(await page.locator('[data-screen="voice-result"]').count(), 1);
+  assert.equal(await page.locator('[data-criterion][data-met="true"]').count(), 3);
+  await page.locator('[data-action="CONTINUE_VOICE"]').click();
   assert.equal(await page.locator('[data-screen="shield"]').count(), 1);
   await page.locator('[data-shield-step="tell"]').click();
   assert.equal(await page.locator('[data-shield-hint]').count(), 1);
