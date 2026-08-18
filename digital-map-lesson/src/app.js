@@ -49,10 +49,10 @@ function chrome(content) {
 function renderWelcome() {
   return chrome(`<section class="screen welcome" data-screen="welcome">
     <div class="welcome-copy">
-      <p class="eyebrow">Интерактивное путешествие · 25–35 минут</p>
+      <p class="eyebrow">Интерактивное путешествие · 30–40 минут</p>
       <h1 tabindex="-1">Построй свою<br><span>цифровую карту</span></h1>
       <p class="lead">Исследуй знакомые места, найди скрытые риски и собери Щит цифрового путешественника.</p>
-      <div class="promise-row"><span>🎬 5 видеосцен</span><span>🧩 4 игры</span><span>🗺️ Личная карта</span></div>
+      <div class="promise-row"><span>🎬 5 видеосцен</span><span>🧩 5 игр</span><span>🗺️ Личная карта</span></div>
       <button class="primary" type="button" data-action="START">Начать путешествие <span aria-hidden="true">→</span></button>
     </div>
     <div class="city-hero" aria-hidden="true">
@@ -327,7 +327,13 @@ async function startLiveVoice() {
       createSession: (sdp) => voiceApi.createSession(sdp),
       onStatus: (status) => { state = transition(state, { type: 'SET_VOICE_STATUS', status }); storeAndRender(); },
       onTurn: (turn) => { state = transition(state, { type: 'ADD_VOICE_TURN', turn }); storeAndRender(); },
-      onError: () => {},
+      onError: () => {
+        realtimeClient?.close();
+        realtimeClient = null;
+        voiceError = true;
+        state = transition(state, { type: 'RETURN_VOICE_PREPARE' });
+        storeAndRender();
+      },
     });
     voiceTimer = setTimeout(() => finishVoice(), 90_000);
   } catch {

@@ -23,6 +23,8 @@ try {
   await page.reload();
 
   assert.equal(await page.locator('[data-screen="welcome"]').count(), 1);
+  assert.match(await page.locator('[data-screen="welcome"]').innerText(), /30–40 минут/i);
+  assert.match(await page.locator('[data-screen="welcome"]').innerText(), /5 игр/i);
   await page.locator('[data-action="START"]').click();
   assert.equal(await page.locator('[data-video-id="digital-day"]').count(), 1);
   await page.locator('[data-action="SKIP_VIDEO"]').click();
