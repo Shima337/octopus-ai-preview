@@ -21,6 +21,45 @@ test('valid lesson state saves and restores', () => {
   assert.deepEqual(loadLesson(storage), state);
 });
 
+test('version one progress migrates to version two without losing the map', () => {
+  const legacy = {
+    version: 1,
+    screen: 'map',
+    warmupIndex: 5,
+    warmupAnswers: [],
+    warmupFeedback: null,
+    selectedPlaces: ['games', 'messages', 'device'],
+    selectedCases: [],
+    caseIndex: 0,
+    selectedClues: [],
+    clueHintVisible: false,
+    mapHintVisible: false,
+    lastActionId: null,
+    lastAnswerCorrect: null,
+    crystals: ['awareness'],
+    shieldSelected: [],
+    shieldHintVisible: false,
+  };
+  const storage = memoryStorage({ 'digital-map-lesson.v1': JSON.stringify(legacy) });
+  const loaded = loadLesson(storage);
+  assert.equal(loaded.version, 2);
+  assert.equal(loaded.screen, 'map');
+  assert.deepEqual(loaded.selectedPlaces, ['games', 'messages', 'device']);
+  assert.deepEqual(loaded.crystals, ['awareness']);
+  assert.deepEqual(loaded.chatChoices, []);
+  assert.equal(loaded.voiceMode, null);
+});
+
+test('reset removes current and legacy lesson progress', () => {
+  const storage = memoryStorage({
+    'digital-map-lesson.v1': '{}',
+    'digital-map-lesson.v2': '{}',
+  });
+  assert.equal(resetLesson(storage), true);
+  assert.equal(storage.getItem('digital-map-lesson.v1'), null);
+  assert.equal(storage.getItem('digital-map-lesson.v2'), null);
+});
+
 test('corrupt, unknown, and unavailable storage start a fresh lesson', () => {
   const corrupt = memoryStorage({ 'digital-map-lesson.v1': '{bad' });
   const unknown = memoryStorage({ 'digital-map-lesson.v1': JSON.stringify({ ...createInitialState(), screen: 'unknown' }) });

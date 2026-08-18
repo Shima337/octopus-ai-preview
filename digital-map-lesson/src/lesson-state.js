@@ -2,7 +2,7 @@ import { CASES, SHIELD_STEPS, WARMUP_CARDS, getCase } from './content.js';
 
 export function createInitialState() {
   return {
-    version: 1,
+    version: 2,
     screen: 'welcome',
     warmupIndex: 0,
     warmupAnswers: [],
@@ -18,6 +18,13 @@ export function createInitialState() {
     crystals: [],
     shieldSelected: [],
     shieldHintVisible: false,
+    chatNodeId: 'gift',
+    chatChoices: [],
+    chatResult: null,
+    voiceMode: null,
+    voiceStatus: 'idle',
+    voiceTurns: [],
+    voiceEvaluation: null,
   };
 }
 
@@ -77,8 +84,21 @@ export function transition(state, event) {
       if (state.screen !== 'map') return state;
       if (state.selectedPlaces.length < 3) return { ...state, mapHintVisible: true };
       const selectedCases = selectCases(state.selectedPlaces).map((item) => item.id);
-      return { ...state, selectedCases, caseIndex: 0, selectedClues: [], screen: screenForCase(getCase(selectedCases[0])) };
+      return { ...state, selectedCases, caseIndex: 0, selectedClues: [], screen: 'chat' };
     }
+    case 'CHAT_REPLY': {
+      if (state.screen !== 'chat') return state;
+      if (typeof event.nextNodeId !== 'string' || !event.nextNodeId) return state;
+      if (!event.choice || typeof event.choice.nodeId !== 'string' || typeof event.choice.replyId !== 'string') return state;
+      if (!['safe', 'check', 'unsafe'].includes(event.choice.safety)) return state;
+      const chatChoices = [...state.chatChoices, event.choice];
+      return event.finished === true
+        ? { ...state, screen: 'chat-result', chatNodeId: event.nextNodeId, chatChoices, chatResult: event.result ?? null }
+        : { ...state, chatNodeId: event.nextNodeId, chatChoices };
+    }
+    case 'CONTINUE_CHAT':
+      if (state.screen !== 'chat-result') return state;
+      return { ...state, screen: screenForCase(getCase(state.selectedCases[0])) };
     case 'TOGGLE_CASE_CLUE': {
       const caseItem = currentCase(state);
       if (state.screen !== 'case-clues' || !caseItem?.clues.some((item) => item.id === event.clueId)) return state;
@@ -107,7 +127,7 @@ export function transition(state, event) {
       const crystals = [...new Set([...state.crystals, caseItem.risk])];
       const nextIndex = state.caseIndex + 1;
       if (nextIndex >= state.selectedCases.length) {
-        return { ...state, crystals, screen: 'shield', selectedClues: [], lastActionId: null, lastAnswerCorrect: null };
+        return { ...state, crystals, screen: 'voice-prepare', selectedClues: [], lastActionId: null, lastAnswerCorrect: null };
       }
       const nextCase = getCase(state.selectedCases[nextIndex]);
       return {
@@ -120,6 +140,31 @@ export function transition(state, event) {
         screen: screenForCase(nextCase),
       };
     }
+    case 'START_VOICE_DEMO':
+      return state.screen === 'voice-prepare'
+        ? { ...state, screen: 'voice-live', voiceMode: 'demo', voiceStatus: 'listening', voiceTurns: [], voiceEvaluation: null }
+        : state;
+    case 'START_VOICE_LIVE':
+      return state.screen === 'voice-prepare'
+        ? { ...state, screen: 'voice-live', voiceMode: 'live', voiceStatus: 'connecting', voiceTurns: [], voiceEvaluation: null }
+        : state;
+    case 'SET_VOICE_STATUS':
+      if (state.screen !== 'voice-live' || !['connecting', 'mentor-speaking', 'listening', 'evaluating', 'ended', 'error'].includes(event.status)) return state;
+      return { ...state, voiceStatus: event.status };
+    case 'ADD_VOICE_TURN': {
+      if (state.screen !== 'voice-live' || !event.turn || !['user', 'assistant'].includes(event.turn.role)) return state;
+      const text = typeof event.turn.text === 'string' ? event.turn.text.trim().slice(0, 500) : '';
+      if (!text || state.voiceTurns.length >= 12) return state;
+      return { ...state, voiceTurns: [...state.voiceTurns, { role: event.turn.role, text }] };
+    }
+    case 'FINISH_VOICE':
+      return state.screen === 'voice-live' ? { ...state, voiceStatus: 'evaluating' } : state;
+    case 'SET_VOICE_EVALUATION':
+      return ['voice-live', 'voice-prepare'].includes(state.screen) && event.evaluation
+        ? { ...state, screen: 'voice-result', voiceStatus: 'ended', voiceEvaluation: event.evaluation }
+        : state;
+    case 'CONTINUE_VOICE':
+      return state.screen === 'voice-result' ? { ...state, screen: 'shield' } : state;
     case 'SELECT_SHIELD_STEP': {
       if (state.screen !== 'shield') return state;
       const expected = SHIELD_STEPS[state.shieldSelected.length];

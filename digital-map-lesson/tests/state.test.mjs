@@ -17,6 +17,49 @@ test('map requires at least three selected places', () => {
   assert.equal(state.mapHintVisible, true);
 });
 
+test('valid map enters the chat before the existing expedition', () => {
+  let state = { ...createInitialState(), screen: 'map', selectedPlaces: ['games', 'messages', 'device'] };
+  state = transition(state, { type: 'CONFIRM_MAP' });
+  assert.equal(state.screen, 'chat');
+  assert.equal(state.selectedCases.length, 3);
+
+  state = transition({ ...state, screen: 'chat-result' }, { type: 'CONTINUE_CHAT' });
+  assert.equal(state.screen, 'expedition-video');
+});
+
+test('chat stores validated choices and only finishes on a terminal reply', () => {
+  let state = { ...createInitialState(), screen: 'chat' };
+  const choice = { nodeId: 'gift', replyId: 'ask-why', safety: 'check' };
+  state = transition(state, { type: 'CHAT_REPLY', nextNodeId: 'school-request', choice, finished: false });
+  assert.equal(state.screen, 'chat');
+  assert.equal(state.chatNodeId, 'school-request');
+  assert.deepEqual(state.chatChoices, [choice]);
+
+  const result = { signals: true, protectedData: true, soughtHelp: true, summary: 'Готово.' };
+  state = transition(state, {
+    type: 'CHAT_REPLY',
+    nextNodeId: 'blocked',
+    choice: { nodeId: 'school-request', replyId: 'stop-and-tell', safety: 'safe' },
+    finished: true,
+    result,
+  });
+  assert.equal(state.screen, 'chat-result');
+  assert.deepEqual(state.chatResult, result);
+});
+
+test('live voice events store only normalized turns and status', () => {
+  let state = { ...createInitialState(), screen: 'voice-prepare' };
+  state = transition(state, { type: 'START_VOICE_LIVE' });
+  assert.equal(state.voiceMode, 'live');
+  state = transition(state, { type: 'SET_VOICE_STATUS', status: 'listening' });
+  state = transition(state, { type: 'ADD_VOICE_TURN', turn: { role: 'user', text: '  Не открою ссылку.  ' } });
+  assert.equal(state.voiceStatus, 'listening');
+  assert.deepEqual(state.voiceTurns, [{ role: 'user', text: 'Не открою ссылку.' }]);
+
+  const unchanged = transition(state, { type: 'ADD_VOICE_TURN', turn: { role: 'system', text: 'secret' } });
+  assert.deepEqual(unchanged, state);
+});
+
 test('warmup records all six answers and awards awareness crystal', () => {
   let state = { ...createInitialState(), screen: 'warmup' };
   for (let index = 0; index < 6; index += 1) {
@@ -56,6 +99,37 @@ test('safe case completion adds one unique risk crystal', () => {
   state = transition(state, { type: 'CONTINUE_CASE' });
   assert.deepEqual(state.crystals, ['awareness', 'scam']);
   assert.equal(state.caseIndex, 1);
+});
+
+test('the final expedition case enters one voice task before the shield', () => {
+  const selectedCases = selectCases(['games', 'messages', 'device']).map((item) => item.id);
+  let state = {
+    ...createInitialState(),
+    screen: 'case-feedback',
+    selectedPlaces: ['games', 'messages', 'device'],
+    selectedCases,
+    caseIndex: 2,
+    lastAnswerCorrect: true,
+    crystals: ['awareness', 'scam', 'privacy'],
+  };
+  state = transition(state, { type: 'CONTINUE_CASE' });
+  assert.equal(state.screen, 'voice-prepare');
+
+  state = transition(state, { type: 'START_VOICE_DEMO' });
+  assert.equal(state.screen, 'voice-live');
+  assert.equal(state.voiceMode, 'demo');
+
+  const evaluation = {
+    signals: { met: true, feedback: 'Сигнал замечен.' },
+    safeAction: { met: true, feedback: 'Действие выбрано.' },
+    trustedAdult: { met: true, feedback: 'Взрослый выбран.' },
+    summary: 'Щит готов.',
+  };
+  state = transition(state, { type: 'SET_VOICE_EVALUATION', evaluation });
+  assert.equal(state.screen, 'voice-result');
+  assert.deepEqual(state.voiceEvaluation, evaluation);
+  state = transition(state, { type: 'CONTINUE_VOICE' });
+  assert.equal(state.screen, 'shield');
 });
 
 test('shield accepts only the safe literal order', () => {
