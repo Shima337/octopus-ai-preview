@@ -43,6 +43,13 @@ try {
     await page.locator(`[data-place-id="${placeId}"]`).click();
   }
   await page.locator('[data-action="CONFIRM_MAP"]').click();
+  assert.equal(await page.locator('[data-screen="chat"]').count(), 1);
+  await page.locator('[data-chat-reply="share-city"]').click();
+  assert.equal(await page.locator('[data-chat-message]').count(), 2);
+  await page.locator('[data-chat-reply="stop-and-tell"]').click();
+  assert.equal(await page.locator('[data-screen="chat-result"]').count(), 1);
+  assert.equal(await page.locator('[data-chat-skill="protectedData"][data-met="false"]').count(), 1);
+  await page.locator('[data-action="CONTINUE_CHAT"]').click();
   assert.equal(await page.locator('[data-screen="expedition-video"]').count(), 1);
   await page.locator('[data-action="SKIP_VIDEO"]').click();
   assert.equal(await page.locator('[data-screen="case-clues"]').count(), 1);

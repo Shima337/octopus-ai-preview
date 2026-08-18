@@ -1,4 +1,5 @@
 import { PLACES, RISK_META, SHIELD_STEPS, WARMUP_CARDS, getCase, getPlace, getVideo } from './content.js';
+import { chooseChatReply, evaluateChatChoices, getChatNode } from './chat-scenario.js';
 import { createInitialState, transition } from './lesson-state.js';
 import { loadLesson, resetLesson, saveLesson } from './storage.js';
 import { getVideoModel } from './video.js';
@@ -16,13 +17,15 @@ function lessonStep(screen) {
   if (['welcome', 'video-intro'].includes(screen)) return 0;
   if (['warmup', 'warmup-result'].includes(screen)) return 1;
   if (screen === 'map') return 2;
-  if (screen.startsWith('case') || screen === 'expedition-video') return 3;
-  return 4;
+  if (screen.startsWith('chat')) return 3;
+  if (screen.startsWith('case') || screen === 'expedition-video') return 4;
+  if (screen.startsWith('voice')) return 5;
+  return 6;
 }
 
 function chrome(content) {
   const step = lessonStep(state.screen);
-  const labels = ['Старт', 'Разминка', 'Карта', 'Экспедиция', 'Щит'];
+  const labels = ['Старт', 'Разминка', 'Карта', 'Чат', 'Экспедиция', 'Голос', 'Щит'];
   return `<main class="lesson-shell">
     <header class="topbar">
       <div class="brand"><span class="brand-mark">✦</span><span>Карта цифрового мира</span></div>
@@ -110,6 +113,42 @@ function renderMap() {
   </section>`);
 }
 
+function chatHistory() {
+  const messages = state.chatChoices.map((choice) => {
+    const node = getChatNode(choice.nodeId);
+    const reply = node?.replies.find((item) => item.id === choice.replyId);
+    if (!node || !reply) return '';
+    return `<li><article class="chat-message stranger" data-chat-message><span aria-hidden="true">🎮</span><div><strong>${escapeHtml(node.sender)}</strong><p>${escapeHtml(node.message)}</p></div></article><article class="chat-message child"><div><strong>Твой ответ</strong><p>${escapeHtml(reply.label)}</p></div><span aria-hidden="true">🧭</span></article></li>`;
+  });
+  const current = getChatNode(state.chatNodeId);
+  if (current && !current.terminal) {
+    messages.push(`<li><article class="chat-message stranger newest" data-chat-message><span aria-hidden="true">🎮</span><div><strong>${escapeHtml(current.sender)}</strong><p>${escapeHtml(current.message)}</p></div></article></li>`);
+  }
+  return messages.join('');
+}
+
+function renderChat() {
+  const node = getChatNode(state.chatNodeId);
+  const replies = node?.replies.map((reply) => `<button type="button" data-action="CHAT_REPLY" data-chat-reply="${escapeHtml(reply.id)}"><span aria-hidden="true">${reply.safety === 'safe' ? '🛡️' : reply.safety === 'check' ? '🔎' : '💬'}</span><strong>${escapeHtml(reply.label)}</strong></button>`).join('') ?? '';
+  return chrome(`<section class="screen chat-screen" data-screen="chat">
+    <div class="section-head"><p class="eyebrow">Игра 3 · Чат-тренажёр</p><h1 tabindex="-1">Незнакомец из игры</h1><p>Выбирай готовые ответы. Это вымышленная история — настоящие данные вводить не нужно.</p></div>
+    <div class="chat-layout"><div class="chat-phone"><header><span aria-hidden="true">🎮</span><div><strong>Игровой чат</strong><small>Незнакомый игрок</small></div><i aria-label="Учебный чат">тренировка</i></header><ol class="chat-thread" aria-live="polite">${chatHistory()}</ol></div>
+    <aside class="chat-replies"><p><span aria-hidden="true">✦</span> Что ответить?</p><div>${replies}</div><small>Если собеседник просит личное, безопаснее остановить разговор и позвать взрослого.</small></aside></div>
+  </section>`);
+}
+
+function renderChatResult() {
+  const result = state.chatResult ?? evaluateChatChoices(state.chatChoices);
+  const skills = [
+    ['signals', '🚨', 'Заметил тревожные сигналы'],
+    ['protectedData', '🔐', 'Сохранил личные данные'],
+    ['soughtHelp', '🤝', 'Позвал взрослого'],
+  ];
+  return chrome(`<section class="screen chat-result-screen" data-screen="chat-result">
+    <div class="chat-result-card"><div class="chat-result-icon" aria-hidden="true">🛡️</div><p class="eyebrow">Чат завершён</p><h1 tabindex="-1">Разберём решение</h1><div class="chat-skill-grid">${skills.map(([key, icon, label]) => `<article data-chat-skill="${key}" data-met="${Boolean(result[key])}" class="${result[key] ? 'met' : 'remember'}"><span aria-hidden="true">${result[key] ? '✓' : icon}</span><strong>${escapeHtml(label)}</strong><small>${result[key] ? 'Получилось' : 'Стоит вспомнить'}</small></article>`).join('')}</div><p class="chat-summary">${escapeHtml(result.summary)}</p><button class="primary centered" type="button" data-action="CONTINUE_CHAT">Продолжить экспедицию <span aria-hidden="true">→</span></button></div>
+  </section>`);
+}
+
 function renderCaseClues() {
   const caseItem = getCase(state.selectedCases[state.caseIndex]);
   const place = getPlace(caseItem.placeId);
@@ -175,6 +214,8 @@ function render() {
   else if (state.screen === 'warmup') html = renderWarmup();
   else if (state.screen === 'warmup-result') html = renderWarmupResult();
   else if (state.screen === 'map') html = renderMap();
+  else if (state.screen === 'chat') html = renderChat();
+  else if (state.screen === 'chat-result') html = renderChatResult();
   else if (state.screen === 'expedition-video') html = videoSlot(getVideo(getCase(state.selectedCases[state.caseIndex])?.videoId), 'expedition-video');
   else if (state.screen === 'case-clues') html = renderCaseClues();
   else if (state.screen === 'case-decision') html = renderCaseDecision();
@@ -199,6 +240,15 @@ app.addEventListener('click', (event) => {
   if (control.dataset.action === 'OPEN_RESTART') { restartPanelOpen = true; render(); return; }
   if (control.dataset.action === 'CANCEL_RESTART') { restartPanelOpen = false; render(); return; }
   if (control.dataset.action === 'CONFIRM_RESTART') { resetLesson(); state = transition(state, { type: 'RESTART' }); restartPanelOpen = false; render(); return; }
+  if (control.dataset.action === 'CHAT_REPLY') {
+    const step = chooseChatReply(state.chatNodeId, control.dataset.chatReply);
+    if (!step) return;
+    const choices = [...state.chatChoices, step.choice];
+    state = transition(state, { type: 'CHAT_REPLY', ...step, result: step.finished ? evaluateChatChoices(choices) : null });
+    saveLesson(state);
+    render();
+    return;
+  }
   const payload = { type: control.dataset.action };
   if (control.dataset.warmupAnswer) payload.answer = control.dataset.warmupAnswer;
   if (control.dataset.placeId) payload.placeId = control.dataset.placeId;
