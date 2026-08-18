@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createInitialState } from '../src/lesson-state.js';
 import { loadLesson, resetLesson, saveLesson } from '../src/storage.js';
 import { getVideoModel } from '../src/video.js';
+import { VoiceApiError, createVoiceApi } from '../src/voice-api.js';
 
 function memoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -78,4 +79,38 @@ test('video model falls back cleanly and accepts a supplied local file', () => {
     getVideoModel(video, { 'digital-day': { source: './videos/digital-day.mp4', captions: './videos/digital-day.vtt' } }),
     { mode: 'player', video, source: './videos/digital-day.mp4', captions: './videos/digital-day.vtt' },
   );
+});
+
+test('voice API reads mode, exchanges SDP, and returns validated evaluation payload', async () => {
+  const evaluation = {
+    signals: { met: true, feedback: 'Сигнал замечен.' },
+    safeAction: { met: true, feedback: 'Безопасный шаг выбран.' },
+    trustedAdult: { met: false, feedback: 'Назови взрослого.' },
+    summary: 'Два шага готовы.',
+  };
+  const calls = [];
+  const api = createVoiceApi({
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url, options });
+      if (url.endsWith('/api/health')) return Response.json({ ok: true, realtime: 'openai' });
+      if (url.endsWith('/api/realtime/session')) return new Response('answer-sdp', { headers: { 'content-type': 'application/sdp' } });
+      return Response.json({ ok: true, evaluation });
+    },
+  });
+  assert.deepEqual(await api.health(), { realtime: 'openai' });
+  assert.equal(await api.createSession('offer-sdp'), 'answer-sdp');
+  assert.deepEqual(await api.evaluate([{ role: 'user', text: 'Позову взрослого.' }]), evaluation);
+  assert.equal(calls[1].options.headers['content-type'], 'application/sdp');
+  assert.deepEqual(JSON.parse(calls[2].options.body), { turns: [{ role: 'user', text: 'Позову взрослого.' }] });
+});
+
+test('voice API maps unavailable and malformed responses to local error codes', async () => {
+  const demo = createVoiceApi({ fetchImpl: async () => Response.json({ ok: true, realtime: 'demo' }) });
+  assert.deepEqual(await demo.health(), { realtime: 'demo' });
+
+  const failed = createVoiceApi({ fetchImpl: async () => new Response('upstream secret', { status: 503 }) });
+  await assert.rejects(() => failed.createSession('offer'), (error) => error instanceof VoiceApiError && error.code === 'SESSION_FAILED' && !error.message.includes('secret'));
+
+  const malformed = createVoiceApi({ fetchImpl: async () => Response.json({ ok: true, evaluation: { summary: 'missing' } }) });
+  await assert.rejects(() => malformed.evaluate([{ role: 'user', text: 'Ответ' }]), (error) => error instanceof VoiceApiError && error.code === 'EVALUATION_FAILED');
 });
