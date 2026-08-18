@@ -1,3 +1,4 @@
 .worktrees/
 voice-help-lesson/.env
 digital-map-lesson/.env
+digital-map-lesson/node_modules/

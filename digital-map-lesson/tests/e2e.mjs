@@ -83,13 +83,19 @@ try {
   }
 
   assert.equal(await page.locator('[data-screen="voice-prepare"]').count(), 1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
+  assert.equal(await page.locator('.voice-mode-grid').evaluate((element) => element.getBoundingClientRect().width <= document.documentElement.clientWidth), true);
   await page.locator('[data-voice-mode="demo"]').click();
   for (const replyId of ['spot-secret', 'refuse-link', 'tell-adult']) {
     assert.equal(await page.locator('[data-screen="voice-live"][data-mode="demo"]').count(), 1);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
     await page.locator(`[data-demo-reply="${replyId}"]`).click();
   }
   assert.equal(await page.locator('[data-screen="voice-result"]').count(), 1);
   assert.equal(await page.locator('[data-criterion][data-met="true"]').count(), 3);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.locator('[data-action="CONTINUE_VOICE"]').click();
   assert.equal(await page.locator('[data-screen="shield"]').count(), 1);
   await page.locator('[data-shield-step="tell"]').click();
