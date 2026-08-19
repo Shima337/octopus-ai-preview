@@ -613,7 +613,7 @@
   }
 
   .media-carousel__track {
-    grid-auto-columns: min(44vw, 27rem);
+    grid-auto-columns: min(27rem, calc((min(100vw, calc(var(--content-width) + 4rem)) - 6rem) / 3));
     padding-inline: max(2rem, calc((100vw - var(--content-width)) / 2));
     scroll-padding-inline: max(2rem, calc((100vw - var(--content-width)) / 2));
   }

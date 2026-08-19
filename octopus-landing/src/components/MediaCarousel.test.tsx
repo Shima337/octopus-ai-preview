@@ -104,6 +104,29 @@ it('plays only the active video while visible and tracks slide changes', async (
   window.removeEventListener('octopus:analytics', analytics);
 });
 
+it('keeps the poster fallback without noise when autoplay is rejected', async () => {
+  const autoplayError = new DOMException('Autoplay blocked', 'NotAllowedError');
+  const unhandledRejection = vi.fn();
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  window.addEventListener('unhandledrejection', unhandledRejection);
+  vi.mocked(HTMLMediaElement.prototype.play).mockRejectedValueOnce(autoplayError);
+
+  render(<MediaCarousel items={items} ariaLabel="Игры" />);
+  const firstVideo = document.querySelector('video');
+
+  await act(async () => {
+    observerCallback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+    await Promise.resolve();
+  });
+
+  expect(firstVideo).toHaveAttribute('poster', '/g1.webp');
+  expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledOnce();
+  expect(unhandledRejection).not.toHaveBeenCalled();
+  expect(consoleError).not.toHaveBeenCalled();
+
+  window.removeEventListener('unhandledrejection', unhandledRejection);
+});
+
 it('does not autoplay when reduced motion is requested or data saver is enabled', async () => {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
   Object.defineProperty(navigator, 'connection', {
