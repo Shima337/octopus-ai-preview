@@ -372,8 +372,13 @@
 }
 
 @media (max-width: 47.9375rem) {
+  .hero {
+    padding-top: var(--space-2);
+  }
+
   .hero__layout {
     grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
   }
 
   .hero__intro,
@@ -384,11 +389,57 @@
 
   .hero__topline {
     align-items: flex-start;
+    margin-bottom: 1.25rem;
   }
 
   .hero__tag {
     max-width: 9rem;
+    font-size: 0.68rem;
     text-align: right;
+  }
+
+  .hero .eyebrow {
+    min-height: 2rem;
+    margin-bottom: var(--space-1);
+    padding: 0.3rem 0.7rem;
+    font-size: 0.68rem;
+  }
+
+  .hero h1 {
+    margin-bottom: var(--space-2);
+    font-size: clamp(2.15rem, 10.6vw, 2.7rem);
+  }
+
+  .hero__lead {
+    margin-bottom: var(--space-1);
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+
+  .hero__method {
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  .hero__offer,
+  .hero__visual {
+    gap: 0.65rem;
+  }
+
+  .hero__price {
+    font-size: 2.1rem;
+  }
+
+  .hero__cta > a,
+  .hero__cta > button {
+    min-height: 3rem;
+    padding-block: 0.6rem;
+    box-shadow: 0 0.45rem 0 var(--color-purple-dark);
+  }
+
+  .hero__note {
+    font-size: 0.8rem;
+    line-height: 1.35;
   }
 }
 

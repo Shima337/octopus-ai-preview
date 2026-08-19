@@ -25,10 +25,10 @@ export function Hero({ cta }: HeroProps) {
               <span className="eyebrow">AI-репетитор по русскому</span>
               <h1 id="hero-title">Подготовься к <em>ЦЭ/ЦТ</em> по русскому</h1>
               <p className="hero__lead">
-                Короткое объяснение, личная практика и проверка по каждой теме — в одном диалоге.
+                Короткие объяснения, личная практика и проверка по каждой теме.
               </p>
               <p className="hero__method">
-                По методике преподавателя с {teacher.experienceYears}-летним опытом подготовки.
+                Автор методики — {teacher.name}. {teacher.experienceYears} лет готовит к ЦЭ/ЦТ.
               </p>
             </div>
 
