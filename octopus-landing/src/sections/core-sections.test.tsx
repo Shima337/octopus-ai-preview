@@ -7,7 +7,7 @@ import { AiProof } from './AiProof';
 afterEach(cleanup);
 
 it('shows price, free access, and Lyudmila authority in the opening proof', () => {
-  render(<Hero cta={<a href="https://t.me/test_bot">Пройти тему бесплатно</a>} />);
+  render(<Hero />);
   expect(screen.getByText(/49 BYN/)).toBeInTheDocument();
   expect(screen.getByText(/7 дней полного доступа/)).toBeInTheDocument();
   expect(screen.getByText(/автор методики.*Людмила Ершова.*20 лет/i)).toBeInTheDocument();

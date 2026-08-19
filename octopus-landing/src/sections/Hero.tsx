@@ -1,11 +1,7 @@
-import type { ReactNode } from 'react';
 import { siteContent } from '../config/content';
+import { TelegramCta } from '../components/TelegramCta';
 
-type HeroProps = {
-  cta: ReactNode;
-};
-
-export function Hero({ cta }: HeroProps) {
+export function Hero() {
   const { aiPrice, teacher } = siteContent;
 
   return (
@@ -36,7 +32,9 @@ export function Hero({ cta }: HeroProps) {
               <p className="hero__price">
                 {aiPrice} BYN <span>/ месяц</span>
               </p>
-              <div className="hero__cta">{cta}</div>
+              <div className="hero__cta">
+                <TelegramCta placement="hero">Пройти тему бесплатно</TelegramCta>
+              </div>
               <p className="hero__note">Первая тема сейчас + 7 дней полного доступа бесплатно</p>
             </div>
           </div>
