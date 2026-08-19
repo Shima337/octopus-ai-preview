@@ -371,6 +371,116 @@
   border-left: 0.4rem solid var(--color-lime);
 }
 
+.games {
+  padding: var(--space-section) 0;
+  background: var(--color-lavender);
+}
+
+.media-carousel {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.media-carousel__track {
+  display: grid;
+  grid-auto-columns: min(82vw, 26rem);
+  grid-auto-flow: column;
+  gap: var(--space-3);
+  margin: 0 calc(50% - 50vw);
+  padding: var(--space-2) max(1rem, calc((100vw - var(--content-width)) / 2));
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-padding-inline: max(1rem, calc((100vw - var(--content-width)) / 2));
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: thin;
+}
+
+.media-carousel__slide {
+  scroll-snap-align: center;
+  overflow: hidden;
+  border: 0.3rem solid var(--color-white);
+  border-radius: var(--radius-lg);
+  background: var(--color-purple-dark);
+  box-shadow: var(--shadow-card);
+  color: var(--color-white);
+}
+
+.media-carousel__slide video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  background: var(--color-purple-dark);
+  object-fit: cover;
+}
+
+.media-carousel__slide p {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--type-sm);
+  font-weight: 850;
+}
+
+.media-carousel__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.media-carousel__controls button {
+  display: grid;
+  width: 3.25rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-purple);
+  color: var(--color-white);
+  cursor: pointer;
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.media-carousel__controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.media-carousel__counter {
+  min-width: 4.75rem;
+  color: var(--color-purple-dark);
+  font-weight: 900;
+  text-align: center;
+}
+
+.games__cta {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  text-align: center;
+}
+
+.games__cta a {
+  display: inline-flex;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-purple);
+  box-shadow: 0 0.55rem 0 var(--color-purple-dark);
+  color: var(--color-white);
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.games__cta p {
+  margin: 0;
+  color: var(--color-ink-soft);
+  font-size: var(--type-sm);
+}
+
 @media (max-width: 47.9375rem) {
   .hero {
     padding-top: var(--space-2);
@@ -500,6 +610,12 @@
 
   .ai-proof__layout {
     grid-template-columns: minmax(15rem, 0.78fr) minmax(25rem, 1.22fr);
+  }
+
+  .media-carousel__track {
+    grid-auto-columns: min(44vw, 27rem);
+    padding-inline: max(2rem, calc((100vw - var(--content-width)) / 2));
+    scroll-padding-inline: max(2rem, calc((100vw - var(--content-width)) / 2));
   }
 }
 
