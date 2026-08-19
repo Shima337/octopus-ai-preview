@@ -11,12 +11,19 @@ type NavigatorWithConnection = Navigator & {
   connection?: { saveData?: boolean };
 };
 
+const DIALOG_FOCUSABLE_SELECTOR = 'button:not(:disabled), video[controls][tabindex="0"]';
+
+function getDialogFocusableElements(dialog: HTMLDivElement | null): HTMLElement[] {
+  return Array.from(dialog?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) ?? []);
+}
+
 export function ReviewGallery({ items }: ReviewGalleryProps) {
   const [galleryRef, isInViewport] = useInViewport<HTMLDivElement>();
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
   const previewRefs = useRef<Array<HTMLVideoElement | null>>([]);
   const playingPreviewIndexesRef = useRef(new Set<number>());
   const modalVideoRef = useRef<HTMLVideoElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const activeReview = useMemo(
     () => items.find((item) => item.id === activeReviewId) ?? null,
@@ -56,9 +63,37 @@ export function ReviewGallery({ items }: ReviewGalleryProps) {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setActiveReviewId(null);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setActiveReviewId(null);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const dialog = dialogRef.current;
+      const focusableElements = getDialogFocusableElements(dialog);
+      const firstFocusable = focusableElements[0];
+      const lastFocusable = focusableElements.at(-1);
+      if (!dialog || !firstFocusable || !lastFocusable) return;
+
+      if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? lastFocusable : firstFocusable).focus();
+      } else if (event.shiftKey && document.activeElement === firstFocusable) {
+        event.preventDefault();
+        lastFocusable.focus();
+      } else if (!event.shiftKey && document.activeElement === lastFocusable) {
+        event.preventDefault();
+        firstFocusable.focus();
+      }
+    };
+    const handleFocusIn = (event: FocusEvent) => {
+      const dialog = dialogRef.current;
+      if (!dialog || !(event.target instanceof Node) || dialog.contains(event.target)) return;
+      getDialogFocusableElements(dialog)[0]?.focus();
     };
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('focusin', handleFocusIn);
 
     const video = modalVideoRef.current;
     if (video) {
@@ -69,6 +104,7 @@ export function ReviewGallery({ items }: ReviewGalleryProps) {
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('focusin', handleFocusIn);
       document.body.style.overflow = previousOverflow;
       video?.pause();
       video?.removeAttribute('src');
@@ -92,10 +128,19 @@ export function ReviewGallery({ items }: ReviewGalleryProps) {
   };
 
   return (
-    <div ref={galleryRef} className="review-gallery">
-      <ol className="review-gallery__list">
+    <div
+      ref={galleryRef}
+      className="review-gallery"
+      role="region"
+      aria-label="Видеоотзывы учеников"
+    >
+      <ol
+        className="review-gallery__track"
+        aria-label="Видеоотзывы"
+        tabIndex={0}
+      >
         {items.map((item, index) => (
-          <li key={item.id} className="review-gallery__item">
+          <li key={item.id} className="review-gallery__slide">
             <button
               type="button"
               className="review-gallery__trigger"
@@ -121,6 +166,7 @@ export function ReviewGallery({ items }: ReviewGalleryProps) {
 
       {activeReview && (
         <div
+          ref={dialogRef}
           className="review-modal"
           role="dialog"
           aria-modal="true"
@@ -137,18 +183,21 @@ export function ReviewGallery({ items }: ReviewGalleryProps) {
             >
               <span aria-hidden="true">×</span>
             </button>
-            <video
-              ref={modalVideoRef}
-              className="review-modal__video"
-              data-testid="active-review"
-              src={activeReview.src}
-              poster={activeReview.poster}
-              controls
-              playsInline
-              preload="metadata"
-              muted={false}
-              onEnded={() => track({ name: 'review_complete', id: activeReview.id })}
-            />
+            <div className="review-modal__media" data-testid="active-review-frame">
+              <video
+                ref={modalVideoRef}
+                className="review-modal__video"
+                data-testid="active-review"
+                src={activeReview.src}
+                poster={activeReview.poster}
+                controls
+                tabIndex={0}
+                playsInline
+                preload="metadata"
+                muted={false}
+                onEnded={() => track({ name: 'review_complete', id: activeReview.id })}
+              />
+            </div>
           </div>
         </div>
       )}

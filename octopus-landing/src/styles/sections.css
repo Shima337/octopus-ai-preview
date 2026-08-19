@@ -486,18 +486,29 @@
   background: var(--color-white);
 }
 
-.review-gallery__list {
+.review-gallery {
+  min-width: 0;
+}
+
+.review-gallery__track {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(1rem, 4vw, 2.5rem);
-  margin: 0;
-  padding: 0;
+  grid-auto-columns: min(76vw, 17rem);
+  grid-auto-flow: column;
+  gap: var(--space-3);
+  margin: 0 calc(50% - 50vw);
+  padding: var(--space-2) 1rem var(--space-4);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-padding-inline: 1rem;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: thin;
   list-style: none;
 }
 
-.review-gallery__item {
+.review-gallery__slide {
   display: grid;
   place-items: center;
+  scroll-snap-align: start;
 }
 
 .review-gallery__trigger {
@@ -557,19 +568,24 @@
 
 .review-modal__panel {
   position: relative;
-  width: min(100%, 28rem);
+  width: min(100%, 28rem, calc(100dvh - 2rem));
   max-height: calc(100dvh - 2rem);
+}
+
+.review-modal__media {
+  overflow: hidden;
+  aspect-ratio: 1;
+  border: 0.25rem solid var(--color-white);
+  border-radius: 50%;
+  background: var(--color-purple-dark);
+  box-shadow: 0 2rem 5rem rgb(0 0 0 / 0.35);
 }
 
 .review-modal__video {
   display: block;
   width: 100%;
-  max-height: calc(100dvh - 2rem);
-  border: 0.25rem solid var(--color-white);
-  border-radius: var(--radius-lg);
-  background: var(--color-purple-dark);
-  box-shadow: 0 2rem 5rem rgb(0 0 0 / 0.35);
-  object-fit: contain;
+  height: 100%;
+  object-fit: cover;
 }
 
 .review-modal__close {
@@ -727,8 +743,22 @@
     scroll-padding-inline: max(2rem, calc((100vw - var(--content-width)) / 2));
   }
 
-  .review-gallery__list {
+  .review-gallery__track {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-columns: auto;
+    grid-auto-flow: row;
+    gap: clamp(1rem, 4vw, 2.5rem);
+    margin: 0;
+    padding: 0;
+    overflow-x: visible;
+    overscroll-behavior-inline: auto;
+    scroll-padding-inline: 0;
+    scroll-snap-type: none;
+    scrollbar-width: auto;
+  }
+
+  .review-gallery__slide {
+    scroll-snap-align: none;
   }
 }
 

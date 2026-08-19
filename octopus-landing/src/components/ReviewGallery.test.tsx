@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ReviewGallery } from './ReviewGallery';
 
@@ -56,6 +56,18 @@ it('does not touch preview playback before the gallery becomes visible', () => {
   expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
 });
 
+it('exposes a focusable horizontal review track with slide items', () => {
+  render(<ReviewGallery items={items} />);
+  const gallery = screen.getByRole('region', { name: /видеоотзывы учеников/i });
+  const track = within(gallery).getByRole('list', { name: /видеоотзывы/i });
+
+  expect(track).toHaveClass('review-gallery__track');
+  expect(track).toHaveAttribute('tabindex', '0');
+  within(track).getAllByRole('listitem').forEach((slide) => {
+    expect(slide).toHaveClass('review-gallery__slide');
+  });
+});
+
 it('plays muted previews only while visible and pauses them for the sound modal', async () => {
   render(<ReviewGallery items={items} />);
   const previews = Array.from(document.querySelectorAll<HTMLVideoElement>('.review-gallery__preview'));
@@ -94,6 +106,37 @@ it('tracks opening and completion while restoring focus and page scrolling', () 
   expect(document.body.style.overflow).toBe('');
   expect(opener).toHaveFocus();
   window.removeEventListener('octopus:analytics', analytics);
+});
+
+it('cycles focus within the modal in both directions', () => {
+  render(<ReviewGallery items={items} />);
+  const opener = screen.getByRole('button', { name: /отзыв ученика 1/i });
+  fireEvent.click(opener);
+  const closeButton = screen.getByRole('button', { name: /закрыть видеоотзыв/i });
+  const modalVideo = screen.getByTestId('active-review');
+
+  expect(closeButton).toHaveFocus();
+  fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+  expect(modalVideo).toHaveFocus();
+
+  fireEvent.keyDown(document, { key: 'Tab' });
+  expect(closeButton).toHaveFocus();
+
+  opener.focus();
+  expect(closeButton).toHaveFocus();
+  fireEvent.keyDown(document, { key: 'Tab' });
+  expect(closeButton).toHaveFocus();
+});
+
+it('places the active video inside the circular modal media frame', () => {
+  render(<ReviewGallery items={items} />);
+  fireEvent.click(screen.getByRole('button', { name: /отзыв ученика 1/i }));
+  const activeVideo = screen.getByTestId('active-review');
+  const mediaFrame = screen.getByTestId('active-review-frame');
+
+  expect(mediaFrame).toHaveClass('review-modal__media');
+  expect(mediaFrame).toContainElement(activeVideo);
+  expect(activeVideo).toHaveClass('review-modal__video');
 });
 
 it('closes only when the modal backdrop itself is clicked', () => {
