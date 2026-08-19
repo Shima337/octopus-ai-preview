@@ -12,8 +12,18 @@ it('tracks placement without preventing Telegram navigation', () => {
   const spy = vi.spyOn(analytics, 'track').mockImplementation(() => undefined);
   render(<TelegramCta placement="hero">Пройти тему бесплатно</TelegramCta>);
   const link = screen.getByRole('link');
+  let defaultWasPrevented: boolean | undefined;
+  const stopJsdomNavigation = (event: MouseEvent) => {
+    defaultWasPrevented = event.defaultPrevented;
+    event.preventDefault();
+  };
+
+  document.addEventListener('click', stopJsdomNavigation);
   fireEvent.click(link);
+  document.removeEventListener('click', stopJsdomNavigation);
+
   expect(spy).toHaveBeenCalledWith({ name: 'telegram_cta_click', placement: 'hero' });
+  expect(defaultWasPrevented).toBe(false);
   expect(link).toHaveAttribute('href', expect.stringMatching(/^(https:\/\/t\.me\/|tg:\/\/resolve)/));
   spy.mockRestore();
 });
