@@ -30,6 +30,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: octopus-landing/package-lock.json
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: python3 -m pip install Pillow
       - run: npm ci
       - run: npm test -- --run
