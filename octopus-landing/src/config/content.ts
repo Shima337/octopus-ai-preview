@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 export type MediaItem = { id: string; src: string; poster: string; label: string };
+export type FaqItem = { id: string; question: string; answer: string };
 
 export type SiteContent = {
   telegramUrl: string;
@@ -8,7 +9,9 @@ export type SiteContent = {
   aiPrice: 49;
   livePrice: 199;
   promoDeadline: '2026-08-31';
+  liveCoursePromo: 'AI включён до 31 августа — 199 BYN вместо 248 BYN';
   teacher: { name: 'Людмила Ершова'; experienceYears: 20; hundredPointStudents: '8+' };
+  faq: FaqItem[];
   games: MediaItem[];
   reviews: MediaItem[];
 };
@@ -19,11 +22,44 @@ export const siteContent: SiteContent = {
   aiPrice: 49,
   livePrice: 199,
   promoDeadline: '2026-08-31',
+  liveCoursePromo: 'AI включён до 31 августа — 199 BYN вместо 248 BYN',
   teacher: {
     name: 'Людмила Ершова',
     experienceYears: 20,
     hundredPointStudents: '8+',
   },
+  faq: [
+    {
+      id: 'ai-only',
+      question: 'Можно ли полностью подготовиться только с AI?',
+      answer: 'Да. AI объяснит каждую тему, даст личную практику и проверит твои ответы.',
+    },
+    {
+      id: 'free-week',
+      question: 'Как работает бесплатная неделя?',
+      answer: 'После запуска в Telegram ты получишь 7 дней полного доступа. Сегодня платить не нужно.',
+    },
+    {
+      id: 'topic-help',
+      question: 'Что будет, если я не понял тему?',
+      answer: 'Задай дополнительный вопрос: AI объяснит иначе и даст новую практику.',
+    },
+    {
+      id: 'level',
+      question: 'Подойдёт ли курс при низком или уже высоком балле?',
+      answer: 'Да. Можно закрыть пробелы с основ или сразу отрабатывать сложные темы.',
+    },
+    {
+      id: 'games',
+      question: 'Игры — это просто развлечение?',
+      answer: 'Нет. Каждая игра закрепляет тему и тренирует задания формата ЦЭ/ЦТ.',
+    },
+    {
+      id: 'live-course',
+      question: 'Можно ли заниматься вживую с Людмилой?',
+      answer: 'Да. Живой курс с Людмилой стоит 199 BYN в месяц; подробности есть на сайте курса.',
+    },
+  ],
   games: [
     { id: 'game-01', src: '/media/games/game-01.mp4', poster: '/media/games/game-01.webp', label: 'Игра 1' },
     { id: 'game-02', src: '/media/games/game-02.mp4', poster: '/media/games/game-02.webp', label: 'Игра 2' },
