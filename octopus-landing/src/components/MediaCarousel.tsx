@@ -12,44 +12,58 @@ type NavigatorWithConnection = Navigator & {
   connection?: { saveData?: boolean };
 };
 
+const wideShowcaseQuery = '(min-width: 70rem)';
+
 export function MediaCarousel({ items, ariaLabel }: MediaCarouselProps) {
   const [regionRef, isInViewport] = useInViewport<HTMLDivElement>();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isWideShowcase, setIsWideShowcase] = useState(
+    () => window.matchMedia?.(wideShowcaseQuery).matches ?? false,
+  );
   const [failedIndexes, setFailedIndexes] = useState<Set<number>>(() => new Set());
   const activeIndexRef = useRef(0);
   const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
   const slideRefs = useRef<Array<HTMLLIElement | null>>([]);
-  const playingIndexRef = useRef<number | null>(null);
+  const playingIndexesRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mediaQuery = window.matchMedia(wideShowcaseQuery);
+    const updateMode = () => setIsWideShowcase(mediaQuery.matches);
+    updateMode();
+    mediaQuery.addEventListener?.('change', updateMode);
+    return () => mediaQuery.removeEventListener?.('change', updateMode);
+  }, []);
 
   useEffect(() => {
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const saveData = (navigator as NavigatorWithConnection).connection?.saveData === true;
-    const canPlay = isInViewport
-      && !reducedMotion
-      && !saveData
-      && !failedIndexes.has(activeIndex);
-    const playingIndex = playingIndexRef.current;
+    const canPlay = isInViewport && !reducedMotion && !saveData;
 
-    if (playingIndex !== null && (playingIndex !== activeIndex || !canPlay)) {
-      videoRefs.current[playingIndex]?.pause();
-      playingIndexRef.current = null;
-    }
+    videoRefs.current.forEach((video, index) => {
+      if (!video) return;
+      const shouldPlay = canPlay
+        && !failedIndexes.has(index)
+        && (isWideShowcase || index === activeIndex);
 
-    if (!canPlay || playingIndexRef.current === activeIndex) return;
+      if (!shouldPlay && playingIndexesRef.current.has(index)) {
+        video.pause();
+        playingIndexesRef.current.delete(index);
+        return;
+      }
+      if (!shouldPlay || playingIndexesRef.current.has(index)) return;
 
-    const video = videoRefs.current[activeIndex];
-    if (!video) return;
-
-    playingIndexRef.current = activeIndex;
-    void video.play().catch(() => {
-      video.pause();
-      if (playingIndexRef.current === activeIndex) playingIndexRef.current = null;
+      playingIndexesRef.current.add(index);
+      void video.play().catch(() => {
+        video.pause();
+        playingIndexesRef.current.delete(index);
+      });
     });
-  }, [activeIndex, failedIndexes, isInViewport]);
+  }, [activeIndex, failedIndexes, isInViewport, isWideShowcase]);
 
   useEffect(() => () => {
-    const playingIndex = playingIndexRef.current;
-    if (playingIndex !== null) videoRefs.current[playingIndex]?.pause();
+    playingIndexesRef.current.forEach((index) => videoRefs.current[index]?.pause());
+    playingIndexesRef.current.clear();
   }, []);
 
   const moveTo = (nextIndex: number) => {
@@ -90,7 +104,7 @@ export function MediaCarousel({ items, ariaLabel }: MediaCarouselProps) {
 
   const handleVideoError = (index: number) => {
     videoRefs.current[index]?.pause();
-    if (playingIndexRef.current === index) playingIndexRef.current = null;
+    playingIndexesRef.current.delete(index);
     setFailedIndexes((current) => new Set(current).add(index));
   };
 
@@ -98,12 +112,14 @@ export function MediaCarousel({ items, ariaLabel }: MediaCarouselProps) {
     const video = videoRefs.current[index];
     if (!video) return;
 
-    if (index !== activeIndexRef.current) moveTo(index);
-    const playingIndex = playingIndexRef.current;
-    if (playingIndex !== null && playingIndex !== index) {
-      videoRefs.current[playingIndex]?.pause();
+    if (!isWideShowcase && index !== activeIndexRef.current) moveTo(index);
+    if (!isWideShowcase) {
+      playingIndexesRef.current.forEach((playingIndex) => {
+        if (playingIndex !== index) videoRefs.current[playingIndex]?.pause();
+      });
+      playingIndexesRef.current.clear();
     }
-    playingIndexRef.current = index;
+    playingIndexesRef.current.add(index);
     setFailedIndexes((current) => {
       const next = new Set(current);
       next.delete(index);
@@ -116,7 +132,7 @@ export function MediaCarousel({ items, ariaLabel }: MediaCarouselProps) {
     video.load();
     void video.play().catch(() => {
       video.pause();
-      if (playingIndexRef.current === index) playingIndexRef.current = null;
+      playingIndexesRef.current.delete(index);
     });
   };
 
@@ -139,7 +155,7 @@ export function MediaCarousel({ items, ariaLabel }: MediaCarouselProps) {
                 muted
                 loop
                 playsInline
-                preload={index === 0 ? 'metadata' : 'none'}
+                preload={isWideShowcase || index === 0 ? 'metadata' : 'none'}
                 onError={() => handleVideoError(index)}
               />
               {failedIndexes.has(index) && (

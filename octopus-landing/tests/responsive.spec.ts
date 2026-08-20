@@ -99,3 +99,42 @@ test('wide journey cards give their text enough room for natural wrapping', asyn
     expect(width, 'journey card text must not be squeezed beside its number').toBeGreaterThanOrEqual(150);
   }
 });
+
+test('wide game showcase fits five compact unlabeled previews at once', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 2048, height: 1142 });
+  await page.goto('/');
+
+  const games = page.getByRole('region', { name: 'Примеры обучающих игр' });
+  await games.scrollIntoViewIfNeeded();
+  const slides = games.locator('.media-carousel__slide');
+  const geometry = await slides.evaluateAll((elements) => elements.map((element) => {
+    const bounds = element.getBoundingClientRect();
+    return { left: bounds.left, right: bounds.right, top: bounds.top, width: bounds.width };
+  }));
+
+  expect(geometry).toHaveLength(5);
+  expect(new Set(geometry.map(({ top }) => Math.round(top))).size).toBe(1);
+  geometry.forEach(({ left, right, width }) => {
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(right).toBeLessThanOrEqual(2048);
+    expect(width).toBeLessThan(250);
+  });
+  await expect(games.locator('.media-carousel__controls')).toBeHidden();
+  const labels = games.locator('.media-carousel__slide > p');
+  await expect(labels).toHaveCount(5);
+  for (let index = 0; index < 5; index += 1) {
+    await expect(labels.nth(index)).toBeHidden();
+  }
+
+  const cropGeometry = await games.locator('.media-carousel__slide').first().evaluate((slide) => {
+    const media = slide.querySelector('.media-carousel__media')!.getBoundingClientRect();
+    const video = slide.querySelector('video')!.getBoundingClientRect();
+    return { mediaTop: media.top, mediaBottom: media.bottom, videoTop: video.top, videoBottom: video.bottom };
+  });
+  expect(cropGeometry.videoTop).toBeLessThan(cropGeometry.mediaTop - 20);
+  expect(Math.abs(cropGeometry.videoBottom - cropGeometry.mediaBottom)).toBeLessThan(1);
+
+  const screenshotPath = testInfo.outputPath('wide-game-showcase.png');
+  await games.screenshot({ path: screenshotPath });
+  await testInfo.attach('wide-game-showcase', { path: screenshotPath, contentType: 'image/png' });
+});

@@ -91,6 +91,33 @@ test('game previews stay muted and cannot activate audio', async ({ page }) => {
   await expect(previews.first()).toHaveJSProperty('muted', true);
 });
 
+test('wide game showcase starts all five muted previews together', async ({ page }) => {
+  await page.setViewportSize({ width: 2048, height: 1142 });
+  await page.addInitScript(() => {
+    const originalPlay = HTMLMediaElement.prototype.play;
+    const attempts: number[] = [];
+    Object.defineProperty(window, '__wideGamePlayIndexes', { configurable: true, value: attempts });
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+      configurable: true,
+      writable: true,
+      value(this: HTMLMediaElement) {
+        if (this.matches('.media-carousel video')) {
+          attempts.push(Array.from(document.querySelectorAll('.media-carousel video')).indexOf(this));
+        }
+        return originalPlay.call(this);
+      },
+    });
+  });
+  await page.goto('/');
+  const games = page.getByRole('region', { name: 'Примеры обучающих игр' });
+  await games.scrollIntoViewIfNeeded();
+  await expect(games).toBeInViewport();
+
+  await expect.poll(() => page.evaluate(() => Array.from(new Set(
+    (window as typeof window & { __wideGamePlayIndexes: number[] }).__wideGamePlayIndexes,
+  )).sort((left, right) => left - right))).toEqual([0, 1, 2, 3, 4]);
+});
+
 test('review dialogs expose one unmuted video and pause the closed review', async ({ page }) => {
   await page.goto('/');
   const firstOpener = page.getByRole('button', { name: 'Отзыв 1. Смотреть со звуком' });

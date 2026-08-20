@@ -104,6 +104,25 @@ it('plays only the active video while visible and tracks slide changes', async (
   window.removeEventListener('octopus:analytics', analytics);
 });
 
+it('plays every preview together when the wide showcase is visible', async () => {
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+    matches: query === '(min-width: 70rem)',
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })));
+  render(<MediaCarousel items={items} ariaLabel="Игры" />);
+  const videos = Array.from(document.querySelectorAll('video'));
+  videos.forEach((video) => {
+    Object.defineProperty(video, 'play', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
+  });
+
+  await act(async () => {
+    observerCallback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+  });
+
+  videos.forEach((video) => expect(video.play).toHaveBeenCalledOnce());
+});
+
 it('keeps the poster fallback without noise when autoplay is rejected', async () => {
   const autoplayError = new DOMException('Autoplay blocked', 'NotAllowedError');
   const unhandledRejection = vi.fn();
