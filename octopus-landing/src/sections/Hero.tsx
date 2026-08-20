@@ -1,5 +1,6 @@
 import { siteContent } from '../config/content';
 import { TelegramCta } from '../components/TelegramCta';
+import { assetPath } from '../lib/assetPath';
 
 export function Hero() {
   const { aiPrice, teacher } = siteContent;
@@ -42,7 +43,7 @@ export function Hero() {
           <div className="hero__visual">
             <div className="hero__portrait-frame">
               <img
-                src="/media/lyudmila.webp"
+                src={assetPath('/media/lyudmila.webp')}
                 width="720"
                 height="900"
                 alt={`${teacher.name}, преподаватель русского языка`}

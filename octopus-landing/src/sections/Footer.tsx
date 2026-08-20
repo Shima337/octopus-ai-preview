@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { siteContent } from '../config/content';
+import { assetPath } from '../lib/assetPath';
 
 const footerLinkTarget: CSSProperties = {
   display: 'inline-flex',
@@ -9,6 +10,13 @@ const footerLinkTarget: CSSProperties = {
 };
 
 export function Footer() {
+  const isPublicPreview = import.meta.env.VITE_PUBLIC_PREVIEW === 'true';
+  const legalItems = [
+    { href: assetPath('/privacy.html'), label: 'Политика конфиденциальности' },
+    { href: assetPath('/offer.html'), label: 'Публичная оферта' },
+    { href: assetPath('/legal.html'), label: 'Реквизиты' },
+  ];
+
   return (
     <footer className="site-footer">
       <div className="section-shell site-footer__inner">
@@ -20,15 +28,11 @@ export function Footer() {
           <a href={siteContent.liveCourseUrl} style={footerLinkTarget}>
             Основной сайт
           </a>
-          <a href="/privacy.html" style={footerLinkTarget}>
-            Политика конфиденциальности
-          </a>
-          <a href="/offer.html" style={footerLinkTarget}>
-            Публичная оферта
-          </a>
-          <a href="/legal.html" style={footerLinkTarget}>
-            Реквизиты
-          </a>
+          {legalItems.map((item) => (
+            isPublicPreview
+              ? <span key={item.href}>{item.label}</span>
+              : <a href={item.href} style={footerLinkTarget} key={item.href}>{item.label}</a>
+          ))}
         </nav>
       </div>
     </footer>

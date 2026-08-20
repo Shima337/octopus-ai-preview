@@ -52,8 +52,13 @@ fi
   return executable;
 }
 
-function runAudit(root, { draft = false } = {}) {
-  return spawnSync(process.execPath, [auditPath, root, ...(draft ? ['--draft'] : [])], {
+function runAudit(root, { base, draft = false } = {}) {
+  return spawnSync(process.execPath, [
+    auditPath,
+    root,
+    ...(draft ? ['--draft'] : []),
+    ...(base ? [`--base=${base}`] : []),
+  ], {
     encoding: 'utf8',
     env: { ...process.env, FFPROBE_BIN: createFakeFfprobe() },
   });
@@ -67,6 +72,25 @@ afterEach(() => {
 
 it('accepts page media under media and the two declared root metadata assets', () => {
   const result = runAudit(createDistFixture());
+
+  expect(result.status).toBe(0);
+  expect(result.stdout).toContain('Artifact media audit passed');
+});
+
+it('accepts the same artifact under a GitHub Pages project base path', () => {
+  const root = createDistFixture();
+  writeFileSync(
+    join(root, 'assets', 'index.js'),
+    'const poster = "/octopus-ai-preview/media/games/game-01.webp"; '
+      + 'const video = "/octopus-ai-preview/media/games/game-01.mp4";',
+  );
+  writeFileSync(
+    join(root, 'index.html'),
+    '<link rel="icon" href="/octopus-ai-preview/favicon.svg">'
+      + '<meta property="og:image" content="/octopus-ai-preview/og-image.jpg">',
+  );
+
+  const result = runAudit(root, { base: '/octopus-ai-preview/' });
 
   expect(result.status).toBe(0);
   expect(result.stdout).toContain('Artifact media audit passed');

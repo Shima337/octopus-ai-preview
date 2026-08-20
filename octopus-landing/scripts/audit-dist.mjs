@@ -5,6 +5,9 @@ import { extname, join, relative, resolve, sep } from 'node:path';
 const argumentsAfterScript = process.argv.slice(2);
 const isDraftAudit = argumentsAfterScript.includes('--draft');
 const artifactArgument = argumentsAfterScript.find((argument) => !argument.startsWith('--'));
+const baseArgument = argumentsAfterScript.find((argument) => argument.startsWith('--base='));
+const requestedBase = baseArgument?.slice('--base='.length) ?? '/';
+const basePath = requestedBase === '/' ? '/' : `/${requestedBase.replace(/^\/+|\/+$/gu, '')}/`;
 const distRoot = resolve(artifactArgument ?? 'dist');
 const metadataAssets = ['og-image.jpg', 'favicon.svg'];
 const legalPages = ['privacy.html', 'offer.html', 'legal.html'];
@@ -51,11 +54,11 @@ if (!existsSync(indexPath)) {
   errors.push('Missing dist/index.html');
 } else {
   const indexHtml = readFileSync(indexPath, 'utf8');
-  if (!indexHtml.includes('href="/favicon.svg"')) {
-    errors.push('dist/index.html must reference the stable root URL /favicon.svg');
+  if (!indexHtml.includes(`href="${basePath}favicon.svg"`)) {
+    errors.push(`dist/index.html must reference ${basePath}favicon.svg`);
   }
-  if (!indexHtml.includes('content="/og-image.jpg"')) {
-    errors.push('dist/index.html must reference the stable root URL /og-image.jpg');
+  if (!indexHtml.includes(`content="${basePath}og-image.jpg"`)) {
+    errors.push(`dist/index.html must reference ${basePath}og-image.jpg`);
   }
 }
 
@@ -91,13 +94,14 @@ for (const file of artifactFiles) {
 
 for (const reference of assetReferences) {
   const path = reference.split(/[?#]/, 1)[0];
-  const isPageMedia = path.startsWith('/media/');
-  const isDeclaredMetadataAsset = metadataAssets.some((asset) => path === `/${asset}`);
+  const normalizedPath = path.startsWith(basePath) ? `/${path.slice(basePath.length)}` : path;
+  const isPageMedia = normalizedPath.startsWith('/media/');
+  const isDeclaredMetadataAsset = metadataAssets.some((asset) => normalizedPath === `/${asset}`);
   if (!isPageMedia && !isDeclaredMetadataAsset) {
     errors.push(`Unexpected media reference outside declared locations: ${reference}`);
     continue;
   }
-  if (!existsSync(join(distRoot, path.slice(1)))) {
+  if (!existsSync(join(distRoot, normalizedPath.slice(1)))) {
     errors.push(`Referenced media asset is missing from dist: ${reference}`);
   }
 }
