@@ -2,8 +2,12 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { extname, join, relative, resolve, sep } from 'node:path';
 
-const distRoot = resolve(process.argv[2] ?? 'dist');
+const argumentsAfterScript = process.argv.slice(2);
+const isDraftAudit = argumentsAfterScript.includes('--draft');
+const artifactArgument = argumentsAfterScript.find((argument) => !argument.startsWith('--'));
+const distRoot = resolve(artifactArgument ?? 'dist');
 const metadataAssets = ['og-image.jpg', 'favicon.svg'];
+const legalPages = ['privacy.html', 'offer.html', 'legal.html'];
 const mediaExtensions = new Set([
   '.aac', '.avif', '.eot', '.gif', '.heic', '.hevc', '.h265', '.ico', '.jpeg', '.jpg',
   '.m4v', '.mov', '.mp3', '.mp4', '.ogg', '.otf', '.png', '.svg', '.ttf', '.wav',
@@ -23,6 +27,8 @@ const mediaReferencePattern = new RegExp(
   'gi',
 );
 const errors = [];
+const draftPublicationPattern = /Документ\s+готовится\s+к\s+публикации/iu;
+const noindexMetaPattern = /<meta\b(?=[^>]*\bname=["']robots["'])(?=[^>]*\bcontent=["'][^"']*\bnoindex\b[^"']*["'])[^>]*>/iu;
 
 function listFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -50,6 +56,24 @@ if (!existsSync(indexPath)) {
   }
   if (!indexHtml.includes('content="/og-image.jpg"')) {
     errors.push('dist/index.html must reference the stable root URL /og-image.jpg');
+  }
+}
+
+if (!isDraftAudit) {
+  for (const legalPage of legalPages) {
+    const legalPath = join(distRoot, legalPage);
+    if (!existsSync(legalPath)) {
+      errors.push(`Missing release legal page: ${legalPage}`);
+      continue;
+    }
+
+    const legalHtml = readFileSync(legalPath, 'utf8');
+    if (draftPublicationPattern.test(legalHtml)) {
+      errors.push(`Release legal page contains a draft publication marker: ${legalPage}`);
+    }
+    if (noindexMetaPattern.test(legalHtml)) {
+      errors.push(`Release legal page remains noindex: ${legalPage}`);
+    }
   }
 }
 
@@ -157,5 +181,6 @@ console.log(
   `Artifact media audit passed: ${mediaFiles.length} files and ${assetReferences.size} references; `
   + 'page media is under dist/media/; '
   + 'root metadata exceptions are og-image.jpg and favicon.svg; '
-  + `${mp4Files.length} MP4 files are H.264/avc High yuv420p.`,
+  + `${mp4Files.length} MP4 files are H.264/avc High yuv420p; `
+  + (isDraftAudit ? 'draft legal markers were allowed.' : 'release legal pages passed.'),
 );

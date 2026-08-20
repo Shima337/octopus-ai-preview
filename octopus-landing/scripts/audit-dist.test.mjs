@@ -26,6 +26,13 @@ function createDistFixture() {
     '<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/assets/index.css">'
       + '<meta property="og:image" content="/og-image.jpg"><script src="/assets/index.js"></script>',
   );
+  for (const legalPage of ['privacy.html', 'offer.html', 'legal.html']) {
+    writeFileSync(
+      join(root, legalPage),
+      '<!doctype html><html lang="ru"><head><meta name="robots" content="index,follow"></head>'
+        + '<body><main><h1>Утверждённый документ</h1></main></body></html>',
+    );
+  }
   return root;
 }
 
@@ -45,8 +52,8 @@ fi
   return executable;
 }
 
-function runAudit(root) {
-  return spawnSync(process.execPath, [auditPath, root], {
+function runAudit(root, { draft = false } = {}) {
+  return spawnSync(process.execPath, [auditPath, root, ...(draft ? ['--draft'] : [])], {
     encoding: 'utf8',
     env: { ...process.env, FFPROBE_BIN: createFakeFfprobe() },
   });
@@ -83,6 +90,53 @@ it('requires both stable root metadata assets', () => {
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('og-image.jpg');
+});
+
+it.each(['privacy.html', 'offer.html', 'legal.html'])(
+  'rejects a release artifact whose %s page still contains the draft publication marker',
+  (legalPage) => {
+    const root = createDistFixture();
+    writeFileSync(
+      join(root, legalPage),
+      '<!doctype html><html lang="ru"><body><p>Документ готовится к публикации</p></body></html>',
+    );
+
+    const result = runAudit(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(legalPage);
+    expect(result.stderr).toContain('draft publication marker');
+  },
+);
+
+it('rejects a release artifact whose legal page remains noindex', () => {
+  const root = createDistFixture();
+  writeFileSync(
+    join(root, 'offer.html'),
+    '<!doctype html><html lang="ru"><head><meta name="robots" content="noindex,follow"></head>'
+      + '<body><h1>Публичная оферта</h1></body></html>',
+  );
+
+  const result = runAudit(root);
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('offer.html');
+  expect(result.stderr).toContain('noindex');
+});
+
+it('allows draft legal markers only through the explicit draft artifact audit path', () => {
+  const root = createDistFixture();
+  for (const legalPage of ['privacy.html', 'offer.html', 'legal.html']) {
+    writeFileSync(
+      join(root, legalPage),
+      '<!doctype html><html lang="ru"><head><meta name="robots" content="noindex"></head>'
+        + '<body><p>Документ готовится к публикации</p></body></html>',
+    );
+  }
+
+  const result = runAudit(root, { draft: true });
+
+  expect(result.status).toBe(0);
 });
 
 it('rejects a page-media reference missing from the artifact', () => {

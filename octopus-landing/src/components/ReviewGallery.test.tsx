@@ -11,6 +11,22 @@ const items = [1, 2].map((n) => ({
 
 let observerCallback: IntersectionObserverCallback;
 
+function createIntersectionEntry(
+  target: HTMLVideoElement,
+  isIntersecting: boolean,
+): IntersectionObserverEntry {
+  const bounds = target.getBoundingClientRect();
+  return {
+    time: 0,
+    target,
+    rootBounds: null,
+    boundingClientRect: bounds,
+    intersectionRect: isIntersecting ? bounds : new DOMRectReadOnly(),
+    isIntersecting,
+    intersectionRatio: isIntersecting ? 1 : 0,
+  };
+}
+
 beforeEach(() => {
   vi.stubGlobal(
     'IntersectionObserver',
@@ -77,15 +93,71 @@ it('plays muted previews only while visible and pauses them for the sound modal'
   });
 
   await act(async () => {
-    observerCallback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+    observerCallback([
+      createIntersectionEntry(previews[0], true),
+      createIntersectionEntry(previews[1], false),
+    ], {} as IntersectionObserver);
   });
-  previews.forEach((video) => expect(video.play).toHaveBeenCalledOnce());
+  expect(previews[0].play).toHaveBeenCalledOnce();
+  expect(previews[1].play).not.toHaveBeenCalled();
+
+  await act(async () => {
+    observerCallback([
+      createIntersectionEntry(previews[0], false),
+      createIntersectionEntry(previews[1], true),
+    ], {} as IntersectionObserver);
+  });
+  expect(previews[0].pause).toHaveBeenCalledOnce();
+  expect(previews[1].play).toHaveBeenCalledOnce();
 
   fireEvent.click(screen.getByRole('button', { name: /отзыв ученика 1/i }));
-  previews.forEach((video) => expect(video.pause).toHaveBeenCalled());
+  expect(previews[1].pause).toHaveBeenCalledOnce();
 
   fireEvent.click(screen.getByRole('button', { name: /закрыть видеоотзыв/i }));
-  previews.forEach((video) => expect(video.play).toHaveBeenCalledTimes(2));
+  expect(previews[0].play).toHaveBeenCalledOnce();
+  expect(previews[1].play).toHaveBeenCalledTimes(2);
+});
+
+it('retains a review poster and exposes a real retry after a preview error', () => {
+  render(<ReviewGallery items={items} />);
+  const firstPreview = document.querySelector<HTMLVideoElement>('.review-gallery__preview')!;
+  const load = vi.fn();
+  const play = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(firstPreview, 'load', { configurable: true, value: load });
+  Object.defineProperty(firstPreview, 'play', { configurable: true, value: play });
+
+  fireEvent.error(firstPreview);
+
+  expect(firstPreview).toHaveAttribute('poster', '/r1.webp');
+  expect(screen.getByRole('status')).toHaveTextContent('Видеоотзыв не загрузился.');
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку отзыва ученика 1' }));
+
+  expect(load).toHaveBeenCalledTimes(2);
+  expect(firstPreview).toHaveAttribute('src', '/r1.mp4');
+  expect(play).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+});
+
+it('retains the modal poster and retries active review playback after an error', () => {
+  render(<ReviewGallery items={items} />);
+  fireEvent.click(screen.getByRole('button', { name: /отзыв ученика 1/i }));
+  const dialog = screen.getByRole('dialog', { name: /отзыв ученика 1/i });
+  const modalVideo = within(dialog).getByTestId('active-review');
+  const load = vi.fn();
+  const play = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(modalVideo, 'load', { configurable: true, value: load });
+  Object.defineProperty(modalVideo, 'play', { configurable: true, value: play });
+
+  fireEvent.error(modalVideo);
+
+  expect(modalVideo).toHaveAttribute('poster', '/r1.webp');
+  expect(within(dialog).getByRole('status')).toHaveTextContent('Видеоотзыв не загрузился.');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Повторить загрузку отзыва ученика 1' }));
+
+  expect(load).toHaveBeenCalledTimes(2);
+  expect(modalVideo).toHaveAttribute('src', '/r1.mp4');
+  expect(play).toHaveBeenCalledOnce();
+  expect(within(dialog).queryByRole('status')).not.toBeInTheDocument();
 });
 
 it('tracks opening and completion while restoring focus and page scrolling', () => {

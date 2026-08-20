@@ -15,7 +15,6 @@ export default defineConfig({
     },
     {
       name: 'webkit',
-      testIgnore: '**/ReviewGallery.spec.ts',
       use: { ...devices['Desktop Safari'] },
     },
   ],

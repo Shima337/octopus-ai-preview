@@ -18,7 +18,7 @@ Set `VITE_TELEGRAM_BOT_URL` in `.env.local` to a Telegram bot URL in one of thes
 VITE_TELEGRAM_BOT_URL=https://t.me/your_real_bot
 ```
 
-`npm run build` rejects placeholder, example, and localhost bot names. The safe test URL below is only for local test/build verification and must never be used for public deployment:
+Both Vite and the release guard load `.env.local`; an explicit shell value takes precedence. `npm run build` rejects missing, malformed, placeholder, example, localhost, and obvious test/demo/development/staging bot names. The safe test URL below is accepted only by the explicitly named draft verification path and must never be used for public deployment:
 
 ```bash
 VITE_TELEGRAM_BOT_URL=https://t.me/octopus_test_bot npm run verify
@@ -29,12 +29,12 @@ Start the local development server with `npm run dev`. Run individual checks wit
 ```bash
 VITE_TELEGRAM_BOT_URL=https://t.me/octopus_test_bot npm test -- --run
 npm run test:e2e
-VITE_TELEGRAM_BOT_URL=https://t.me/octopus_test_bot npm run build
+VITE_TELEGRAM_BOT_URL=https://t.me/octopus_test_bot npm run build:draft
 ```
 
-`npm run verify` is the release verification command: unit tests, Chromium/WebKit E2E tests, TypeScript, and the production Vite build. It must complete without warnings.
+`npm run verify` is the draft/local verification command: unit tests, Chromium/WebKit E2E tests, TypeScript, a Vite build, and the draft artifact audit. It must complete without warnings. `npm run verify:release` is the fail-closed public-release command; it requires a non-test bot URL and final indexed legal pages.
 
-The production build finishes by running `npm run audit:dist`. This executable audit fails if page photo/video/poster media escapes `dist/media/`, if a referenced image/video/audio/font or metadata asset is missing or uses an undeclared root URL, if a forbidden MOV/HEVC-source extension is shipped, if any MP4 video stream is not H.264/avc High profile with `yuv420p`, or if either declared root metadata asset is missing. The only media exceptions allowed at the `dist/` root are `og-image.jpg` and `favicon.svg`, because `index.html` references their stable root URLs.
+The production build finishes by running `npm run audit:dist`. This executable release audit fails if a legal page is missing, still contains `Документ готовится к публикации`, or remains `noindex`; if page photo/video/poster media escapes `dist/media/`; if a referenced image/video/audio/font or metadata asset is missing or uses an undeclared root URL; if a forbidden MOV/HEVC-source extension is shipped; if any MP4 video stream is not H.264/avc High profile with `yuv420p`; or if either declared root metadata asset is missing. The only media exceptions allowed at the `dist/` root are `og-image.jpg` and `favicon.svg`, because `index.html` references their stable root URLs. `npm run audit:dist:draft` preserves media auditing while explicitly allowing draft legal pages for local review.
 
 ## Media preparation
 
@@ -60,8 +60,8 @@ Never add MOV/HEVC originals to `public/` or `dist/`. Review videos also require
 
 ## Static deployment
 
-1. Complete every item in `RELEASE_CHECKLIST.md` and set the real production `VITE_TELEGRAM_BOT_URL` in the build environment.
-2. Run `npm run verify` and inspect the generated `dist/` directory.
+1. Complete every item in `RELEASE_CHECKLIST.md` and set the real production `VITE_TELEGRAM_BOT_URL` in `.env.local` or the build environment.
+2. Run `npm run verify:release` and inspect the generated `dist/` directory.
 3. Deploy the contents of `dist/` at the site root on any static host. The app uses root-relative `/media/...`, `/og-image.jpg`, `/favicon.svg`, and legal-page URLs, so a subdirectory deployment requires a corresponding Vite base-path change.
 4. Configure the host to serve `index.html`, the three legal HTML documents, and `media/` unchanged. Keep all page photo/video/poster assets under `dist/media/`. The only root metadata exceptions are `dist/og-image.jpg` and `dist/favicon.svg`; both must exist at those stable URLs.
 5. Set an explicit CDN/cache policy: page media under `dist/media/` may use a long-lived policy when replacements are versioned or purged, while `og-image.jpg` and `favicon.svg` must use revalidation or a shorter lifetime and be purged whenever their contents change.

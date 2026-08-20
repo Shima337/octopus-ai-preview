@@ -70,7 +70,7 @@ test.describe('ReviewGallery browser contracts', () => {
     expect(issues).toEqual([]);
   });
 
-  test('modal frame is circular and native video controls are traversed before focus wraps', async ({ page }) => {
+  test('modal frame is circular and focus remains contained across browser control models', async ({ page, browserName }) => {
     const issues = captureBrowserIssues(page);
     await page.goto('/');
     const opener = page.getByRole('button', { name: 'Отзыв 1. Смотреть со звуком' });
@@ -107,30 +107,36 @@ test.describe('ReviewGallery browser contracts', () => {
 
     const focusSequence = [await activeElementName(page)];
     const containmentSequence = [await dialog.evaluate((element) => element.contains(document.activeElement))];
-    await page.keyboard.press('Tab');
-    focusSequence.push(await activeElementName(page));
-    containmentSequence.push(await dialog.evaluate((element) => element.contains(document.activeElement)));
-    await expect(video).toBeFocused();
-    await page.keyboard.press('Tab');
-    focusSequence.push(await activeElementName(page));
-    containmentSequence.push(await dialog.evaluate((element) => element.contains(document.activeElement)));
-    await expect(video).toBeFocused();
-
-    let wrapped = false;
-    for (let press = 0; press < 16; press += 1) {
+    if (browserName === 'chromium') {
       await page.keyboard.press('Tab');
       focusSequence.push(await activeElementName(page));
       containmentSequence.push(await dialog.evaluate((element) => element.contains(document.activeElement)));
-      if (await close.evaluate((element) => element === document.activeElement)) {
-        wrapped = true;
-        break;
+      await expect(video).toBeFocused();
+      await page.keyboard.press('Tab');
+      focusSequence.push(await activeElementName(page));
+      containmentSequence.push(await dialog.evaluate((element) => element.contains(document.activeElement)));
+      await expect(video).toBeFocused();
+
+      let wrapped = false;
+      for (let press = 0; press < 16; press += 1) {
+        await page.keyboard.press('Tab');
+        focusSequence.push(await activeElementName(page));
+        containmentSequence.push(await dialog.evaluate((element) => element.contains(document.activeElement)));
+        if (await close.evaluate((element) => element === document.activeElement)) {
+          wrapped = true;
+          break;
+        }
       }
+      expect(wrapped).toBe(true);
+      await page.keyboard.press('Shift+Tab');
+      await expect(video).toBeFocused();
+    } else {
+      await page.keyboard.press('Tab');
+      focusSequence.push(await activeElementName(page));
+      containmentSequence.push(await dialog.evaluate((element) => element.contains(document.activeElement)));
     }
-    expect(wrapped).toBe(true);
     expect(containmentSequence.every(Boolean)).toBe(true);
     expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-    await page.keyboard.press('Shift+Tab');
-    await expect(video).toBeFocused();
     expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
     if (process.env.REVIEW_GALLERY_EVIDENCE === '1') {
       console.info(`MOBILE_CIRCLE ${JSON.stringify(circleContract)}`);

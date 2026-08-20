@@ -17,7 +17,7 @@
 
 ## Technical verification
 
-- [ ] `VITE_TELEGRAM_BOT_URL=<real-url> npm run verify` completes without warnings: unit tests pass, Chromium/WebKit E2E tests pass, TypeScript passes, and Vite creates `dist/`.
+- [ ] `VITE_TELEGRAM_BOT_URL=<real-url> npm run verify:release` completes without warnings: unit tests pass, Chromium/WebKit E2E tests pass, TypeScript passes, Vite creates `dist/`, and the release audit accepts final indexed legal pages.
 - [ ] `npm run audit:dist` confirms every referenced image/video/audio/font and metadata asset exists in a declared location, all page photo/video/poster media is under `dist/media/`, the only root metadata exceptions are the present and referenced `dist/og-image.jpg` and `dist/favicon.svg`, no MOV/HEVC source is shipped, every MP4 stream is H.264/avc High with `yuv420p`, and the first screen has no video dependency.
 - [ ] Deployed cache rules are verified: `dist/media/` uses the approved long-lived/purge-or-version policy, while `/og-image.jpg` and `/favicon.svg` revalidate or use a shorter lifetime and are purged when replaced.
 - [ ] Deployed site is checked on real current iOS/Safari and Android/Chrome devices at supported phone widths.

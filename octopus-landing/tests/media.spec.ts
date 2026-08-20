@@ -1,5 +1,79 @@
 import { expect, test } from '@playwright/test';
 
+test('review previews play only when each circle is actually visible', async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalPlay = HTMLMediaElement.prototype.play;
+    const playIndexes: number[] = [];
+    Object.defineProperty(window, '__reviewPreviewPlayIndexes', {
+      configurable: true,
+      value: playIndexes,
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+      configurable: true,
+      writable: true,
+      value(this: HTMLMediaElement) {
+        if (this.matches('.review-gallery__preview')) {
+          const previews = Array.from(document.querySelectorAll('.review-gallery__preview'));
+          playIndexes.push(previews.indexOf(this));
+        }
+        return originalPlay.call(this);
+      },
+    });
+  });
+  await page.goto('/');
+  const track = page.getByRole('list', { name: 'Видеоотзывы' });
+  await track.scrollIntoViewIfNeeded();
+  await expect(track).toBeInViewport();
+
+  const visibleIndexes = await track.evaluate((element) => {
+    const clip = element.getBoundingClientRect();
+    return Array.from(element.querySelectorAll<HTMLVideoElement>('.review-gallery__preview'))
+      .flatMap((video, index) => {
+        const bounds = video.getBoundingClientRect();
+        const visibleWidth = Math.max(0, Math.min(bounds.right, clip.right, innerWidth)
+          - Math.max(bounds.left, clip.left, 0));
+        const visibleHeight = Math.max(0, Math.min(bounds.bottom, clip.bottom, innerHeight)
+          - Math.max(bounds.top, clip.top, 0));
+        const ratio = (visibleWidth * visibleHeight) / (bounds.width * bounds.height);
+        return ratio >= 0.2 ? [index] : [];
+      });
+  });
+
+  await expect.poll(() => page.evaluate(() => Array.from(new Set(
+    (window as typeof window & { __reviewPreviewPlayIndexes: number[] })
+      .__reviewPreviewPlayIndexes,
+  )).sort((left, right) => left - right))).toEqual(visibleIndexes);
+});
+
+test('game, review preview, and active modal expose poster-preserving retry states', async ({ page }) => {
+  await page.goto('/');
+
+  const gameVideo = page.getByRole('region', { name: 'Примеры обучающих игр' }).locator('video').first();
+  await gameVideo.scrollIntoViewIfNeeded();
+  await gameVideo.dispatchEvent('error');
+  await expect(page.getByRole('status', { name: 'Игра 1: ошибка видео' })).toContainText('Видео не загрузилось.');
+  await expect(gameVideo).toHaveAttribute('poster', '/media/games/game-01.webp');
+  await page.getByRole('button', { name: 'Повторить загрузку игры 1' }).click();
+  await expect(page.getByRole('status', { name: 'Игра 1: ошибка видео' })).toHaveCount(0);
+
+  const firstReviewPreview = page.locator('.review-gallery__preview').first();
+  await firstReviewPreview.scrollIntoViewIfNeeded();
+  await firstReviewPreview.dispatchEvent('error');
+  await expect(page.getByRole('status', { name: 'Отзыв 1: ошибка видео' })).toContainText('Видеоотзыв не загрузился.');
+  await expect(firstReviewPreview).toHaveAttribute('poster', '/media/reviews/review-01.webp');
+  await page.getByRole('button', { name: 'Повторить загрузку отзыва 1' }).click();
+  await expect(page.getByRole('status', { name: 'Отзыв 1: ошибка видео' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Отзыв 2. Смотреть со звуком' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Отзыв 2' });
+  const activeVideo = page.getByTestId('active-review');
+  await activeVideo.dispatchEvent('error');
+  await expect(dialog.getByRole('status', { name: 'Отзыв 2: ошибка видео' })).toContainText('Видеоотзыв не загрузился.');
+  await expect(activeVideo).toHaveAttribute('poster', '/media/reviews/review-02.webp');
+  await dialog.getByRole('button', { name: 'Повторить загрузку отзыва 2' }).click();
+  await expect(dialog.getByRole('status', { name: 'Отзыв 2: ошибка видео' })).toHaveCount(0);
+});
+
 test('game previews stay muted and cannot activate audio', async ({ page }) => {
   await page.goto('/');
   const games = page.getByRole('region', { name: 'Примеры обучающих игр' });

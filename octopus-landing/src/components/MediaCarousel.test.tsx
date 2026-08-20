@@ -127,6 +127,40 @@ it('keeps the poster fallback without noise when autoplay is rejected', async ()
   window.removeEventListener('unhandledrejection', unhandledRejection);
 });
 
+it('retains the game poster and exposes a real retry after a video error', () => {
+  render(<MediaCarousel items={items} ariaLabel="Игры" />);
+  const firstVideo = document.querySelector<HTMLVideoElement>('video')!;
+  const load = vi.fn();
+  const play = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(firstVideo, 'load', { configurable: true, value: load });
+  Object.defineProperty(firstVideo, 'play', { configurable: true, value: play });
+
+  fireEvent.error(firstVideo);
+
+  expect(firstVideo).toHaveAttribute('poster', '/g1.webp');
+  expect(screen.getByRole('status')).toHaveTextContent('Видео не загрузилось.');
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку игры 1' }));
+
+  expect(load).toHaveBeenCalledTimes(2);
+  expect(firstVideo).toHaveAttribute('src', '/g1.mp4');
+  expect(play).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+});
+
+it('makes an errored game active when its retry explicitly requests playback', () => {
+  render(<MediaCarousel items={items} ariaLabel="Игры" />);
+  const secondVideo = document.querySelectorAll<HTMLVideoElement>('video')[1];
+  const play = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(secondVideo, 'load', { configurable: true, value: vi.fn() });
+  Object.defineProperty(secondVideo, 'play', { configurable: true, value: play });
+
+  fireEvent.error(secondVideo);
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку игры 2' }));
+
+  expect(screen.getByText('2 / 3')).toBeInTheDocument();
+  expect(play).toHaveBeenCalledOnce();
+});
+
 it('does not autoplay when reduced motion is requested or data saver is enabled', async () => {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
   Object.defineProperty(navigator, 'connection', {

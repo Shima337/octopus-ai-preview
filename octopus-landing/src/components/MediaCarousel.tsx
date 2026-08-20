@@ -15,6 +15,7 @@ type NavigatorWithConnection = Navigator & {
 export function MediaCarousel({ items, ariaLabel }: MediaCarouselProps) {
   const [regionRef, isInViewport] = useInViewport<HTMLDivElement>();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [failedIndexes, setFailedIndexes] = useState<Set<number>>(() => new Set());
   const activeIndexRef = useRef(0);
   const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
   const slideRefs = useRef<Array<HTMLLIElement | null>>([]);
@@ -23,7 +24,10 @@ export function MediaCarousel({ items, ariaLabel }: MediaCarouselProps) {
   useEffect(() => {
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const saveData = (navigator as NavigatorWithConnection).connection?.saveData === true;
-    const canPlay = isInViewport && !reducedMotion && !saveData;
+    const canPlay = isInViewport
+      && !reducedMotion
+      && !saveData
+      && !failedIndexes.has(activeIndex);
     const playingIndex = playingIndexRef.current;
 
     if (playingIndex !== null && (playingIndex !== activeIndex || !canPlay)) {
@@ -41,7 +45,7 @@ export function MediaCarousel({ items, ariaLabel }: MediaCarouselProps) {
       video.pause();
       if (playingIndexRef.current === activeIndex) playingIndexRef.current = null;
     });
-  }, [activeIndex, isInViewport]);
+  }, [activeIndex, failedIndexes, isInViewport]);
 
   useEffect(() => () => {
     const playingIndex = playingIndexRef.current;
@@ -84,6 +88,38 @@ export function MediaCarousel({ items, ariaLabel }: MediaCarouselProps) {
     track({ name: 'game_slide_change', id: items[nearestIndex].id });
   };
 
+  const handleVideoError = (index: number) => {
+    videoRefs.current[index]?.pause();
+    if (playingIndexRef.current === index) playingIndexRef.current = null;
+    setFailedIndexes((current) => new Set(current).add(index));
+  };
+
+  const retryVideo = (index: number) => {
+    const video = videoRefs.current[index];
+    if (!video) return;
+
+    if (index !== activeIndexRef.current) moveTo(index);
+    const playingIndex = playingIndexRef.current;
+    if (playingIndex !== null && playingIndex !== index) {
+      videoRefs.current[playingIndex]?.pause();
+    }
+    playingIndexRef.current = index;
+    setFailedIndexes((current) => {
+      const next = new Set(current);
+      next.delete(index);
+      return next;
+    });
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    video.setAttribute('src', items[index].src);
+    video.load();
+    void video.play().catch(() => {
+      video.pause();
+      if (playingIndexRef.current === index) playingIndexRef.current = null;
+    });
+  };
+
   return (
     <div ref={regionRef} className="media-carousel" role="region" aria-label={ariaLabel}>
       <ol className="media-carousel__track" onScroll={handleScroll}>
@@ -94,16 +130,36 @@ export function MediaCarousel({ items, ariaLabel }: MediaCarouselProps) {
             ref={(element) => { slideRefs.current[index] = element; }}
             aria-label={`${index + 1} из ${items.length}: ${item.label}`}
           >
-            <video
-              ref={(element) => { videoRefs.current[index] = element; }}
-              aria-label={item.label}
-              src={item.src}
-              poster={item.poster}
-              muted
-              loop
-              playsInline
-              preload={index === 0 ? 'metadata' : 'none'}
-            />
+            <div className="media-carousel__media">
+              <video
+                ref={(element) => { videoRefs.current[index] = element; }}
+                aria-label={item.label}
+                src={item.src}
+                poster={item.poster}
+                muted
+                loop
+                playsInline
+                preload={index === 0 ? 'metadata' : 'none'}
+                onError={() => handleVideoError(index)}
+              />
+              {failedIndexes.has(index) && (
+                <div className="media-error media-carousel__error">
+                  <p
+                    role="status"
+                    aria-label={`${item.label}: ошибка видео. Видео не загрузилось.`}
+                  >
+                    Видео не загрузилось.
+                  </p>
+                  <button
+                    type="button"
+                    aria-label={`Повторить загрузку ${item.label.replace(/^Игра/u, 'игры')}`}
+                    onClick={() => retryVideo(index)}
+                  >
+                    Повторить
+                  </button>
+                </div>
+              )}
+            </div>
             <p>{item.label}</p>
           </li>
         ))}
