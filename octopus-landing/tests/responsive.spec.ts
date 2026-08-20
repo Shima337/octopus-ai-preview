@@ -85,3 +85,17 @@ test('landing has no horizontal overflow or overlapping mobile hero content', as
     })}`);
   }
 });
+
+test('wide journey cards give their text enough room for natural wrapping', async ({ page }) => {
+  await page.setViewportSize({ width: 2048, height: 1142 });
+  await page.goto('/');
+
+  const textWidths = await page.locator('.journey__stage > div').evaluateAll((contents) =>
+    contents.map((content) => content.getBoundingClientRect().width),
+  );
+
+  expect(textWidths).toHaveLength(5);
+  for (const width of textWidths) {
+    expect(width, 'journey card text must not be squeezed beside its number').toBeGreaterThanOrEqual(150);
+  }
+});

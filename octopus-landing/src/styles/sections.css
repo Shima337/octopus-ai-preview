@@ -851,6 +851,7 @@
   .journey__stage:nth-child(4),
   .journey__stage:nth-child(5) {
     grid-column: auto;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .journey__stage:nth-child(even) {
