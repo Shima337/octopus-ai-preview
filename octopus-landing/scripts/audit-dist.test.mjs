@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -12,19 +12,44 @@ function createDistFixture() {
   temporaryDirectories.push(root);
   mkdirSync(join(root, 'assets'), { recursive: true });
   mkdirSync(join(root, 'media', 'games'), { recursive: true });
-  writeFileSync(join(root, 'assets', 'index.js'), 'const poster = "/media/games/game-01.webp";');
+  writeFileSync(
+    join(root, 'assets', 'index.js'),
+    'const poster = "/media/games/game-01.webp"; const video = "/media/games/game-01.mp4";',
+  );
+  writeFileSync(join(root, 'assets', 'index.css'), '.hero { color: purple; }');
   writeFileSync(join(root, 'media', 'games', 'game-01.webp'), 'poster');
+  writeFileSync(join(root, 'media', 'games', 'game-01.mp4'), 'h264');
   writeFileSync(join(root, 'og-image.jpg'), 'social image');
   writeFileSync(join(root, 'favicon.svg'), '<svg />');
   writeFileSync(
     join(root, 'index.html'),
-    '<link rel="icon" href="/favicon.svg"><meta property="og:image" content="/og-image.jpg">',
+    '<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/assets/index.css">'
+      + '<meta property="og:image" content="/og-image.jpg"><script src="/assets/index.js"></script>',
   );
   return root;
 }
 
+function createFakeFfprobe() {
+  const root = mkdtempSync(join(tmpdir(), 'octopus-ffprobe-'));
+  temporaryDirectories.push(root);
+  const executable = join(root, 'ffprobe');
+  writeFileSync(executable, `#!/bin/sh
+for argument do input="$argument"; done
+if [ "$(cat "$input")" = "hevc" ]; then
+  printf '%s\n' '{"streams":[{"codec_name":"hevc","profile":"Main","codec_tag_string":"hvc1","pix_fmt":"yuv420p"}]}'
+else
+  printf '%s\n' '{"streams":[{"codec_name":"h264","profile":"High","codec_tag_string":"avc1","pix_fmt":"yuv420p"}]}'
+fi
+`);
+  chmodSync(executable, 0o755);
+  return executable;
+}
+
 function runAudit(root) {
-  return spawnSync(process.execPath, [auditPath, root], { encoding: 'utf8' });
+  return spawnSync(process.execPath, [auditPath, root], {
+    encoding: 'utf8',
+    env: { ...process.env, FFPROBE_BIN: createFakeFfprobe() },
+  });
 }
 
 afterEach(() => {
@@ -68,6 +93,36 @@ it('rejects a page-media reference missing from the artifact', () => {
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('media/games/missing.webp');
+});
+
+it.each([
+  [
+    'HTML',
+    'index.html',
+    '<link rel="icon" href="/favicon.svg"><meta property="og:image" content="/og-image.jpg">'
+      + '<img src="/rogue-poster.jpg">',
+  ],
+  ['CSS', 'assets/index.css', '.hero { background: url("/rogue-poster.jpg"); }'],
+  ['JavaScript', 'assets/index.js', 'const poster = "/rogue-poster.jpg";'],
+])('rejects a built %s media reference outside the declared locations', (_kind, file, contents) => {
+  const root = createDistFixture();
+  writeFileSync(join(root, file), contents);
+
+  const result = runAudit(root);
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('rogue-poster.jpg');
+});
+
+it('rejects an HEVC stream renamed with an mp4 extension', () => {
+  const root = createDistFixture();
+  writeFileSync(join(root, 'media', 'renamed.mp4'), 'hevc');
+
+  const result = runAudit(root);
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('media/renamed.mp4');
+  expect(result.stderr).toContain('hevc');
 });
 
 it('rejects forbidden source formats even inside media', () => {

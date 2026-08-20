@@ -4,7 +4,7 @@ Static Vite/React landing page for the Octopus AI Russian-language tutor. Public
 
 ## Local setup
 
-Prerequisites: Node.js/npm, plus the Playwright Chromium and WebKit browsers.
+Prerequisites: Node.js/npm, the Playwright Chromium and WebKit browsers, and `ffprobe` from FFmpeg. The artifact audit uses `/opt/homebrew/bin/ffprobe` when present, otherwise `ffprobe` from `PATH`; override it with `FFPROBE_BIN` when needed.
 
 ```bash
 npm ci
@@ -34,7 +34,7 @@ VITE_TELEGRAM_BOT_URL=https://t.me/octopus_test_bot npm run build
 
 `npm run verify` is the release verification command: unit tests, Chromium/WebKit E2E tests, TypeScript, and the production Vite build. It must complete without warnings.
 
-The production build finishes by running `npm run audit:dist`. This executable audit fails if page photo/video/poster media escapes `dist/media/`, if a referenced media/metadata asset is missing, if a forbidden MOV/HEVC-source extension is shipped, or if either declared root metadata asset is missing. The only media exceptions allowed at the `dist/` root are `og-image.jpg` and `favicon.svg`, because `index.html` references their stable root URLs.
+The production build finishes by running `npm run audit:dist`. This executable audit fails if page photo/video/poster media escapes `dist/media/`, if a referenced image/video/audio/font or metadata asset is missing or uses an undeclared root URL, if a forbidden MOV/HEVC-source extension is shipped, if any MP4 video stream is not H.264/avc High profile with `yuv420p`, or if either declared root metadata asset is missing. The only media exceptions allowed at the `dist/` root are `og-image.jpg` and `favicon.svg`, because `index.html` references their stable root URLs.
 
 ## Media preparation
 
