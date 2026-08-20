@@ -30,6 +30,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: octopus-landing/package-lock.json
+      - run: python3 -m pip install Pillow
       - run: npm ci
       - run: npm test -- --run
       - run: npm run build:pages-preview
