@@ -572,6 +572,15 @@
   max-height: calc(100dvh - 2rem);
 }
 
+.review-modal__focus-sentinel {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .review-modal__media {
   overflow: hidden;
   aspect-ratio: 1;

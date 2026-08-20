@@ -108,7 +108,7 @@ it('tracks opening and completion while restoring focus and page scrolling', () 
   window.removeEventListener('octopus:analytics', analytics);
 });
 
-it('cycles focus within the modal in both directions', () => {
+it('contains escaped focus without intercepting native video-control traversal', () => {
   render(<ReviewGallery items={items} />);
   const opener = screen.getByRole('button', { name: /отзыв ученика 1/i });
   fireEvent.click(opener);
@@ -116,16 +116,22 @@ it('cycles focus within the modal in both directions', () => {
   const modalVideo = screen.getByTestId('active-review');
 
   expect(closeButton).toHaveFocus();
-  fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+  const forwardTab = new KeyboardEvent('keydown', {
+    key: 'Tab',
+    bubbles: true,
+    cancelable: true,
+  });
+  modalVideo.focus();
+  modalVideo.dispatchEvent(forwardTab);
+  expect(forwardTab.defaultPrevented).toBe(false);
   expect(modalVideo).toHaveFocus();
-
-  fireEvent.keyDown(document, { key: 'Tab' });
-  expect(closeButton).toHaveFocus();
 
   opener.focus();
   expect(closeButton).toHaveFocus();
-  fireEvent.keyDown(document, { key: 'Tab' });
-  expect(closeButton).toHaveFocus();
+
+  fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+  opener.focus();
+  expect(modalVideo).toHaveFocus();
 });
 
 it('places the active video inside the circular modal media frame', () => {

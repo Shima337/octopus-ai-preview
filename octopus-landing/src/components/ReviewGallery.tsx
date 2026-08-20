@@ -61,6 +61,7 @@ export function ReviewGallery({ items }: ReviewGalleryProps) {
     if (!activeReview) return;
 
     const previousOverflow = document.body.style.overflow;
+    let lastTabDirection: 'forward' | 'backward' = 'forward';
     document.body.style.overflow = 'hidden';
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -68,29 +69,16 @@ export function ReviewGallery({ items }: ReviewGalleryProps) {
         setActiveReviewId(null);
         return;
       }
-      if (event.key !== 'Tab') return;
-
-      const dialog = dialogRef.current;
-      const focusableElements = getDialogFocusableElements(dialog);
-      const firstFocusable = focusableElements[0];
-      const lastFocusable = focusableElements.at(-1);
-      if (!dialog || !firstFocusable || !lastFocusable) return;
-
-      if (!dialog.contains(document.activeElement)) {
-        event.preventDefault();
-        (event.shiftKey ? lastFocusable : firstFocusable).focus();
-      } else if (event.shiftKey && document.activeElement === firstFocusable) {
-        event.preventDefault();
-        lastFocusable.focus();
-      } else if (!event.shiftKey && document.activeElement === lastFocusable) {
-        event.preventDefault();
-        firstFocusable.focus();
-      }
+      if (event.key === 'Tab') lastTabDirection = event.shiftKey ? 'backward' : 'forward';
     };
     const handleFocusIn = (event: FocusEvent) => {
       const dialog = dialogRef.current;
       if (!dialog || !(event.target instanceof Node) || dialog.contains(event.target)) return;
-      getDialogFocusableElements(dialog)[0]?.focus();
+      const focusableElements = getDialogFocusableElements(dialog);
+      const recoveryTarget = lastTabDirection === 'backward'
+        ? focusableElements.at(-1)
+        : focusableElements[0];
+      recoveryTarget?.focus();
     };
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('focusin', handleFocusIn);
@@ -122,6 +110,11 @@ export function ReviewGallery({ items }: ReviewGalleryProps) {
   };
 
   const closeReview = () => setActiveReviewId(null);
+
+  const focusDialogEdge = (edge: 'first' | 'last') => {
+    const focusableElements = getDialogFocusableElements(dialogRef.current);
+    (edge === 'first' ? focusableElements[0] : focusableElements.at(-1))?.focus();
+  };
 
   const handleBackdropClick = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) closeReview();
@@ -173,6 +166,11 @@ export function ReviewGallery({ items }: ReviewGalleryProps) {
           aria-label={activeReview.label}
           onClick={handleBackdropClick}
         >
+          <span
+            className="review-modal__focus-sentinel"
+            tabIndex={0}
+            onFocus={() => focusDialogEdge('last')}
+          />
           <div className="review-modal__panel">
             <button
               type="button"
@@ -199,6 +197,11 @@ export function ReviewGallery({ items }: ReviewGalleryProps) {
               />
             </div>
           </div>
+          <span
+            className="review-modal__focus-sentinel"
+            tabIndex={0}
+            onFocus={() => focusDialogEdge('first')}
+          />
         </div>
       )}
     </div>
