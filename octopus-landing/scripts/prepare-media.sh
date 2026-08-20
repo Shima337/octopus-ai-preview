@@ -2,7 +2,10 @@
 
 set -euo pipefail
 
+readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly FFMPEG_BIN="${FFMPEG_BIN:-/opt/homebrew/bin/ffmpeg}"
+
+cd "$PROJECT_ROOT"
 
 if ! command -v "$FFMPEG_BIN" >/dev/null 2>&1; then
   echo "ffmpeg not found: $FFMPEG_BIN" >&2
@@ -17,6 +20,112 @@ else
     echo "Neither ffmpeg libwebp nor Python Pillow WebP support is available" >&2
     exit 1
   fi
+fi
+
+if ! command -v curl >/dev/null 2>&1; then
+  echo "curl is required to download the approved teacher photo" >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'from PIL import Image, ImageDraw, ImageFont, ImageOps'; then
+  echo "Python Pillow is required to prepare teacher and social media" >&2
+  exit 1
+fi
+
+# Approved teacher photo source; the face is only resized, never generated or retouched.
+# https://www.ct-bratan.by/assets/lyudmila-ershova-BAE4kYzB.jpg
+readonly TEACHER_SOURCE_URL="https://www.ct-bratan.by/assets/lyudmila-ershova-BAE4kYzB.jpg"
+
+prepare_identity_assets() (
+  set -euo pipefail
+
+  local media_temp_dir teacher_source
+  media_temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/octopus-identity.XXXXXX")"
+  trap 'rm -rf -- "$media_temp_dir"' EXIT
+  teacher_source="$media_temp_dir/lyudmila-source.jpg"
+
+  mkdir -p public/media
+  curl -fsSL --retry 3 "$TEACHER_SOURCE_URL" -o "$teacher_source"
+
+  python3 - "$teacher_source" public/media/lyudmila.webp public/media/og-background.png public/og-image.jpg <<'PY'
+from pathlib import Path
+import sys
+
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+source_path, webp_path, background_path, og_path = map(Path, sys.argv[1:])
+resampling = Image.Resampling.LANCZOS
+
+with Image.open(source_path) as source:
+    teacher_source = ImageOps.exif_transpose(source).convert('RGB')
+
+teacher_webp = teacher_source.copy()
+teacher_webp.thumbnail((960, 960), resampling)
+teacher_webp.save(webp_path, 'WEBP', quality=82, method=6)
+
+with Image.open(background_path) as source:
+    background = ImageOps.fit(
+        ImageOps.exif_transpose(source).convert('RGB'),
+        (1200, 630),
+        method=resampling,
+    ).convert('RGBA')
+
+overlay = Image.new('RGBA', background.size, (0, 0, 0, 0))
+draw = ImageDraw.Draw(overlay)
+
+# All important content stays inside the 1080 x 566 safe area: x=60..1140, y=32..598.
+draw.rounded_rectangle((60, 45, 1140, 585), radius=48, fill=(255, 255, 255, 224))
+
+bold_path = '/System/Library/Fonts/Supplemental/Arial Bold.ttf'
+regular_path = '/System/Library/Fonts/Supplemental/Arial.ttf'
+font_brand = ImageFont.truetype(bold_path, 24)
+font_title = ImageFont.truetype(bold_path, 82)
+font_subtitle = ImageFont.truetype(bold_path, 48)
+font_detail = ImageFont.truetype(regular_path, 25)
+font_price = ImageFont.truetype(bold_path, 66)
+font_period = ImageFont.truetype(bold_path, 27)
+font_teacher = ImageFont.truetype(bold_path, 25)
+font_role = ImageFont.truetype(regular_path, 20)
+
+purple = (91, 43, 217, 255)
+purple_dark = (50, 18, 112, 255)
+yellow = (255, 216, 77, 255)
+white = (255, 255, 255, 255)
+
+draw.rounded_rectangle((84, 72, 343, 116), radius=22, fill=purple)
+draw.text((106, 81), 'ОСЬМИНОГ AI', font=font_brand, fill=white)
+draw.text((82, 145), 'ЦЭ/ЦТ', font=font_title, fill=purple_dark, stroke_width=1)
+draw.text((84, 237), 'по русскому', font=font_subtitle, fill=purple)
+draw.text((86, 311), 'AI-репетитор • 7 дней бесплатно', font=font_detail, fill=purple_dark)
+
+draw.rounded_rectangle((82, 377, 590, 535), radius=40, fill=yellow)
+draw.text((112, 392), '49 BYN', font=font_price, fill=purple_dark)
+draw.text((116, 477), '/ месяц', font=font_period, fill=purple_dark)
+
+teacher = ImageOps.contain(teacher_source, (430, 430), method=resampling)
+photo_mask = Image.new('L', teacher.size, 0)
+ImageDraw.Draw(photo_mask).rounded_rectangle((0, 0, teacher.width - 1, teacher.height - 1), radius=44, fill=255)
+photo_x, photo_y = 684, 67
+draw.rounded_rectangle(
+    (photo_x - 8, photo_y - 8, photo_x + teacher.width + 8, photo_y + teacher.height + 8),
+    radius=52,
+    fill=white,
+)
+overlay.paste(teacher.convert('RGBA'), (photo_x, photo_y), photo_mask)
+
+draw.rounded_rectangle((722, 493, 1116, 566), radius=30, fill=purple_dark)
+draw.text((749, 501), 'Людмила Ершова', font=font_teacher, fill=white)
+draw.text((749, 535), 'автор методики • 20 лет', font=font_role, fill=white)
+
+result = Image.alpha_composite(background, overlay).convert('RGB')
+result.save(og_path, 'JPEG', quality=91, optimize=True, progressive=True)
+PY
+)
+
+prepare_identity_assets
+
+if [[ "${1:-}" == "--identity-only" ]]; then
+  exit 0
 fi
 
 readonly GAME_SOURCES=(
