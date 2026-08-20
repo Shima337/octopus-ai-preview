@@ -104,6 +104,7 @@ it.each([
   ],
   ['CSS', 'assets/index.css', '.hero { background: url("/rogue-poster.jpg"); }'],
   ['JavaScript', 'assets/index.js', 'const poster = "/rogue-poster.jpg";'],
+  ['single-quoted JavaScript', 'assets/index.js', "const poster = '/rogue-poster.jpg';"],
 ])('rejects a built %s media reference outside the declared locations', (_kind, file, contents) => {
   const root = createDistFixture();
   writeFileSync(join(root, file), contents);
@@ -112,6 +113,57 @@ it.each([
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('rogue-poster.jpg');
+});
+
+it('rejects an unexpected media reference in a JavaScript template literal', () => {
+  const root = createDistFixture();
+  writeFileSync(join(root, 'assets', 'index.js'), 'const poster = `/rogue-poster.jpg?v=2#card`;');
+
+  const result = runAudit(root);
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('rogue-poster.jpg?v=2#card');
+});
+
+it.each([
+  ['tag terminator', '<img src=/rogue-poster.jpg>'],
+  ['whitespace terminator', '<img src=/rogue-poster.jpg alt="Preview">'],
+])('rejects an unexpected media reference in an unquoted HTML attribute before a %s', (_kind, image) => {
+  const root = createDistFixture();
+  writeFileSync(
+    join(root, 'index.html'),
+    '<link rel="icon" href="/favicon.svg"><meta property="og:image" content="/og-image.jpg">'
+      + image,
+  );
+
+  const result = runAudit(root);
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('rogue-poster.jpg');
+});
+
+it('rejects an unexpected media reference with an uppercase extension', () => {
+  const root = createDistFixture();
+  writeFileSync(join(root, 'assets', 'index.js'), 'const poster = "/rogue-poster.JPG";');
+
+  const result = runAudit(root);
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('rogue-poster.JPG');
+});
+
+it('detects allowed media references with query and hash suffixes', () => {
+  const root = createDistFixture();
+  writeFileSync(
+    join(root, 'assets', 'index.js'),
+    'const poster = `/media/games/game-01.webp?v=2#poster`; '
+      + 'const video = "/media/games/game-01.mp4#preview";',
+  );
+
+  const result = runAudit(root);
+
+  expect(result.status).toBe(0);
+  expect(result.stdout).toContain('4 references');
 });
 
 it('rejects an HEVC stream renamed with an mp4 extension', () => {

@@ -17,9 +17,10 @@ const mediaExtensionPattern = [...mediaExtensions]
   .sort((left, right) => right.length - left.length)
   .join('|');
 const mediaReferencePattern = new RegExp(
-  `(?:^|[("'=:\\s])\\/([A-Za-z0-9@._~!$&+,;=%/-]+\\.(?:${mediaExtensionPattern}))`
-    + '(?:[?#][A-Za-z0-9@._~!$&+,;=:%/?-]*)?(?=[)"\'\\s,;]|$)',
-  'g',
+  `(?:^|[("'\`=:\\s])((?:(?:https?:)?\\/\\/|\\.{0,2}\\/)?`
+    + `[A-Za-z0-9@._~!$&+,;%/-]+\\.(?:${mediaExtensionPattern})`
+    + '(?:[?#][A-Za-z0-9@._~!$&+,;=:%/?#-]*)?)(?=[)"\'\`>\\s,;]|$)',
+  'gi',
 );
 const errors = [];
 
@@ -65,13 +66,14 @@ for (const file of artifactFiles) {
 }
 
 for (const reference of assetReferences) {
-  const isPageMedia = reference.startsWith('media/');
-  const isDeclaredMetadataAsset = metadataAssets.includes(reference);
+  const path = reference.split(/[?#]/, 1)[0];
+  const isPageMedia = path.startsWith('/media/');
+  const isDeclaredMetadataAsset = metadataAssets.some((asset) => path === `/${asset}`);
   if (!isPageMedia && !isDeclaredMetadataAsset) {
     errors.push(`Unexpected media reference outside declared locations: ${reference}`);
     continue;
   }
-  if (!existsSync(join(distRoot, reference))) {
+  if (!existsSync(join(distRoot, path.slice(1)))) {
     errors.push(`Referenced media asset is missing from dist: ${reference}`);
   }
 }

@@ -37,7 +37,7 @@
 - Accessibility: **100** (required ≥90)
 - Best Practices: **100** (required ≥90)
 - SEO: **100**
-- [x] Safe-test-URL `npm run verify`: 43 unit tests and 19 Chromium/WebKit E2E tests passed; TypeScript, Vite build, and the executable artifact audit passed without warnings.
+- [x] Safe-test-URL `npm run verify`: 49 unit tests and 19 Chromium/WebKit E2E tests passed; TypeScript, Vite build, and the executable artifact audit passed without warnings.
 - [x] Local `dist/` audit: all 27 production page-media/metadata references resolve; 26 page/support media files are isolated under `dist/media/`; the only root metadata assets are the required `dist/og-image.jpg` and `dist/favicon.svg`; no MOV/HEVC/H.265/HEIC file is shipped; every MP4 video stream is H.264 High/yuv420p.
 - [x] First-screen audit: the hero uses the teacher WebP and contains no video element; game/review videos appear only in later sections.
 
