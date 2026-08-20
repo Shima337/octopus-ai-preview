@@ -3,27 +3,22 @@
 set -euo pipefail
 
 readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly MODE="${1:-}"
 readonly FFMPEG_BIN="${FFMPEG_BIN:-/opt/homebrew/bin/ffmpeg}"
+readonly CURL_BIN="${CURL_BIN:-curl}"
 
 cd "$PROJECT_ROOT"
 
-if ! command -v "$FFMPEG_BIN" >/dev/null 2>&1; then
-  echo "ffmpeg not found: $FFMPEG_BIN" >&2
-  exit 1
-fi
+case "$MODE" in
+  ""|--identity-only) ;;
+  *)
+    echo "Usage: $0 [--identity-only]" >&2
+    exit 2
+    ;;
+esac
 
-if "$FFMPEG_BIN" -hide_banner -encoders 2>/dev/null | grep -q '[[:space:]]libwebp[[:space:]]'; then
-  readonly HAS_FFMPEG_WEBP=true
-else
-  readonly HAS_FFMPEG_WEBP=false
-  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'from PIL import features; raise SystemExit(not features.check("webp"))'; then
-    echo "Neither ffmpeg libwebp nor Python Pillow WebP support is available" >&2
-    exit 1
-  fi
-fi
-
-if ! command -v curl >/dev/null 2>&1; then
-  echo "curl is required to download the approved teacher photo" >&2
+if ! command -v "$CURL_BIN" >/dev/null 2>&1; then
+  echo "curl is required to download the approved teacher photo: $CURL_BIN" >&2
   exit 1
 fi
 
@@ -35,17 +30,31 @@ fi
 # Approved teacher photo source; the face is only resized, never generated or retouched.
 # https://www.ct-bratan.by/assets/lyudmila-ershova-BAE4kYzB.jpg
 readonly TEACHER_SOURCE_URL="https://www.ct-bratan.by/assets/lyudmila-ershova-BAE4kYzB.jpg"
+readonly TEACHER_SOURCE_SHA256="e34ebd4fb1ad4261c9831d6f0a28ab27320ad2eed2ff0c15b053bb5045329caa"
 
 prepare_identity_assets() (
   set -euo pipefail
 
-  local media_temp_dir teacher_source
+  local actual_sha256 media_temp_dir teacher_source
   media_temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/octopus-identity.XXXXXX")"
   trap 'rm -rf -- "$media_temp_dir"' EXIT
   teacher_source="$media_temp_dir/lyudmila-source.jpg"
 
   mkdir -p public/media
-  curl -fsSL --retry 3 "$TEACHER_SOURCE_URL" -o "$teacher_source"
+  "$CURL_BIN" -fsSL --retry 3 "$TEACHER_SOURCE_URL" -o "$teacher_source"
+
+  actual_sha256="$(python3 - "$teacher_source" <<'PY'
+from hashlib import sha256
+from pathlib import Path
+import sys
+
+print(sha256(Path(sys.argv[1]).read_bytes()).hexdigest())
+PY
+)"
+  if [[ "$actual_sha256" != "$TEACHER_SOURCE_SHA256" ]]; then
+    echo "Teacher photo checksum mismatch: expected $TEACHER_SOURCE_SHA256, got $actual_sha256" >&2
+    exit 1
+  fi
 
   python3 - "$teacher_source" public/media/lyudmila.webp public/media/og-background.png public/og-image.jpg <<'PY'
 from pathlib import Path
@@ -122,10 +131,24 @@ result.save(og_path, 'JPEG', quality=91, optimize=True, progressive=True)
 PY
 )
 
-prepare_identity_assets
-
-if [[ "${1:-}" == "--identity-only" ]]; then
+if [[ "$MODE" == "--identity-only" ]]; then
+  prepare_identity_assets
   exit 0
+fi
+
+if ! command -v "$FFMPEG_BIN" >/dev/null 2>&1; then
+  echo "ffmpeg not found: $FFMPEG_BIN" >&2
+  exit 1
+fi
+
+if "$FFMPEG_BIN" -hide_banner -encoders 2>/dev/null | grep -q '[[:space:]]libwebp[[:space:]]'; then
+  readonly HAS_FFMPEG_WEBP=true
+else
+  readonly HAS_FFMPEG_WEBP=false
+  if ! python3 -c 'from PIL import features; raise SystemExit(not features.check("webp"))'; then
+    echo "Neither ffmpeg libwebp nor Python Pillow WebP support is available" >&2
+    exit 1
+  fi
 fi
 
 readonly GAME_SOURCES=(
@@ -152,6 +175,8 @@ for source in "${GAME_SOURCES[@]}" "${REVIEW_SOURCES[@]}"; do
     exit 1
   fi
 done
+
+prepare_identity_assets
 
 mkdir -p public/media/games public/media/reviews
 
