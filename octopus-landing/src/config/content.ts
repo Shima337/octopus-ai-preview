@@ -77,5 +77,6 @@ export const siteContent: SiteContent = {
     { id: 'review-05', src: assetPath('/media/reviews/review-05.mp4'), poster: assetPath('/media/reviews/review-05.webp'), label: 'Отзыв 5' },
     { id: 'review-06', src: assetPath('/media/reviews/review-06.mp4'), poster: assetPath('/media/reviews/review-06.webp'), label: 'Отзыв 6' },
     { id: 'review-07', src: assetPath('/media/reviews/review-07.mp4'), poster: assetPath('/media/reviews/review-07.webp'), label: 'Отзыв 7' },
+    { id: 'review-08', src: assetPath('/media/reviews/review-08.mp4'), poster: assetPath('/media/reviews/review-08.webp'), label: 'Отзыв 8' },
   ],
 };

@@ -153,19 +153,29 @@ test('desktop gallery and modal preserve grid, circular geometry, containment, a
 
   const track = page.getByRole('list', { name: 'Видеоотзывы' });
   await track.scrollIntoViewIfNeeded();
+  const reviewButtons = track.getByRole('button', { name: /Отзыв \d+\. Смотреть со звуком/u });
+  await expect(reviewButtons).toHaveCount(8);
   const galleryContract = await track.evaluate((element) => {
     const style = getComputedStyle(element);
+    const slides = Array.from(element.children).map((slide) => {
+      const bounds = slide.getBoundingClientRect();
+      return { left: bounds.left, top: bounds.top };
+    });
     return {
       gridAutoFlow: style.gridAutoFlow,
       overflowX: style.overflowX,
       pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      slides,
     };
   });
-  expect(galleryContract).toEqual({
+  expect(galleryContract).toMatchObject({
     gridAutoFlow: 'row',
     overflowX: 'visible',
     pageOverflow: 0,
   });
+  expect(new Set(galleryContract.slides.slice(0, 4).map((slide) => Math.round(slide.top))).size).toBe(1);
+  expect(new Set(galleryContract.slides.slice(4).map((slide) => Math.round(slide.top))).size).toBe(1);
+  expect(galleryContract.slides[4].top).toBeGreaterThan(galleryContract.slides[0].top);
 
   await page.getByRole('button', { name: 'Отзыв 1. Смотреть со звуком' }).click();
   const dialog = page.getByRole('dialog', { name: 'Отзыв 1' });

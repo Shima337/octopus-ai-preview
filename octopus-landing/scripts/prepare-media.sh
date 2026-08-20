@@ -167,6 +167,7 @@ readonly REVIEW_SOURCES=(
   "/Users/user/Desktop/video.mp4"
   "/Users/user/Desktop/2026-08-19 15.26.00.mp4"
   "/Users/user/Desktop/2026-08-19 15.25.54.mp4"
+  "/Users/user/Desktop/2026-08-19 15.25.48.mp4"
 )
 
 for source in "${GAME_SOURCES[@]}" "${REVIEW_SOURCES[@]}"; do
