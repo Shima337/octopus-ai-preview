@@ -4,7 +4,7 @@ import { Faq } from '../components/Faq';
 import { Pricing } from './Pricing';
 
 it('shows the active promotion and hides it after the deadline', () => {
-  const { rerender } = render(<Pricing now={new Date('2026-08-31T20:00:00Z')} />);
+  const { rerender } = render(<Pricing now={new Date('2026-08-31T20:59:59Z')} />);
   expect(screen.getByText(/вместо 248 BYN/i)).toBeInTheDocument();
 
   rerender(<Pricing now={new Date('2026-08-31T21:00:00Z')} />);

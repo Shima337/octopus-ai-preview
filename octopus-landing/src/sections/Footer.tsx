@@ -1,4 +1,12 @@
+import type { CSSProperties } from 'react';
 import { siteContent } from '../config/content';
+
+const footerLinkTarget: CSSProperties = {
+  display: 'inline-flex',
+  minWidth: 44,
+  minHeight: 44,
+  alignItems: 'center',
+};
 
 export function Footer() {
   return (
@@ -9,10 +17,18 @@ export function Footer() {
           <span>Осьминог</span>
         </div>
         <nav className="site-footer__links" aria-label="Ссылки в подвале">
-          <a href={siteContent.liveCourseUrl}>Основной сайт</a>
-          <a href="/privacy.html">Политика конфиденциальности</a>
-          <a href="/offer.html">Публичная оферта</a>
-          <a href="/legal.html">Реквизиты</a>
+          <a href={siteContent.liveCourseUrl} style={footerLinkTarget}>
+            Основной сайт
+          </a>
+          <a href="/privacy.html" style={footerLinkTarget}>
+            Политика конфиденциальности
+          </a>
+          <a href="/offer.html" style={footerLinkTarget}>
+            Публичная оферта
+          </a>
+          <a href="/legal.html" style={footerLinkTarget}>
+            Реквизиты
+          </a>
         </nav>
       </div>
     </footer>
