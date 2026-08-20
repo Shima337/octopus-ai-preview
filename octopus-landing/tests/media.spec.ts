@@ -28,6 +28,12 @@ test('review dialogs expose one unmuted video and pause the closed review', asyn
   await expect(dialogs).toBeVisible();
   const firstVideo = page.getByTestId('active-review');
   await expect(firstVideo).toHaveJSProperty('muted', false);
+  await expect.poll(
+    () => page.locator('video').evaluateAll(
+      (videos: HTMLVideoElement[]) => videos.filter((video) => !video.muted).length,
+    ),
+    { message: 'exactly the active review may be unmuted' },
+  ).toBe(1);
   const firstVideoHandle = await firstVideo.elementHandle();
   expect(firstVideoHandle).not.toBeNull();
 
@@ -70,21 +76,55 @@ test('FAQ questions operate from the keyboard and expose one answer at a time', 
   await expect(page.getByRole('region', { name: 'Как работает бесплатная неделя?' })).toBeVisible();
 });
 
-test('reduced motion keeps game and review previews paused', async ({ page }) => {
+test('reduced motion prevents preview autoplay without blocking a user-opened review', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    const originalPlay = HTMLMediaElement.prototype.play;
+    const attempts: string[] = [];
+    Object.defineProperty(window, '__mediaPlayAttempts', {
+      configurable: true,
+      value: attempts,
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+      configurable: true,
+      writable: true,
+      value(this: HTMLMediaElement) {
+        const kind = this.matches('.media-carousel video')
+          ? 'game-preview'
+          : this.matches('.review-gallery__preview')
+            ? 'review-preview'
+            : this.matches('[data-testid="active-review"]')
+              ? 'active-review'
+              : 'other';
+        attempts.push(kind);
+        return originalPlay.call(this);
+      },
+    });
+  });
   await page.goto('/');
 
   const games = page.getByRole('region', { name: 'Примеры обучающих игр' });
   await games.scrollIntoViewIfNeeded();
-  const gamePausedStates = await games.locator('video').evaluateAll(
-    (videos: HTMLVideoElement[]) => videos.map((video) => video.paused),
-  );
-  expect(gamePausedStates).toEqual([true, true, true, true, true]);
+  await expect(games).toBeInViewport();
 
   const reviews = page.getByRole('region', { name: 'Видеоотзывы учеников' });
   await reviews.scrollIntoViewIfNeeded();
-  const reviewPausedStates = await reviews.locator('.review-gallery__preview').evaluateAll(
-    (videos: HTMLVideoElement[]) => videos.map((video) => video.paused),
-  );
-  expect(reviewPausedStates).toEqual([true, true, true, true, true, true, true]);
+  await expect(reviews).toBeInViewport();
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+
+  const previewAttempts = () => page.evaluate(() => (
+    (window as typeof window & { __mediaPlayAttempts: string[] }).__mediaPlayAttempts
+      .filter((kind) => kind === 'game-preview' || kind === 'review-preview')
+  ));
+  expect(await previewAttempts()).toEqual([]);
+
+  await page.getByRole('button', { name: 'Отзыв 1. Смотреть со звуком' }).click();
+  await expect.poll(() => page.evaluate(() => (
+    (window as typeof window & { __mediaPlayAttempts: string[] }).__mediaPlayAttempts
+      .filter((kind) => kind === 'active-review').length
+  ))).toBe(1);
+  expect(await previewAttempts()).toEqual([]);
+  await expect(page.getByTestId('active-review')).toHaveJSProperty('muted', false);
 });

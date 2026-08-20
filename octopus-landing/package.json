@@ -5,7 +5,7 @@
     "build": "node scripts/validate-production-env.mjs && tsc -b && vite build",
     "build:local": "tsc -b && vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "env -u NO_COLOR playwright test"
   },
   "dependencies": {
     "react": "^19.1.1",
