@@ -45,13 +45,15 @@ test('landing has no horizontal overflow or overlapping mobile hero content', as
     if (mobileWidths.has(width)) {
       const boxes = await Promise.all([
         getVerticalBox('hero heading', page.getByRole('heading', { level: 1 })),
+        getVerticalBox('teacher method', page.locator('.hero__method')),
+        getVerticalBox('teacher visual', page.locator('.hero__visual')),
+        getVerticalBox('benefit explanation', page.locator('.hero__lead')),
         getVerticalBox('price', page.locator('.hero__price')),
         getVerticalBox(
           'primary CTA',
           page.getByRole('link', { name: 'Пройти тему бесплатно' }),
         ),
         getVerticalBox('trial note', page.locator('.hero__note')),
-        getVerticalBox('teacher image', page.locator('.hero__portrait-frame img')),
       ]);
       geometry[width] = boxes;
 

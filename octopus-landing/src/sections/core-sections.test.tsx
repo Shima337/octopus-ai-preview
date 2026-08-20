@@ -10,7 +10,7 @@ it('shows price, free access, and Lyudmila authority in the opening proof', () =
   render(<Hero />);
   expect(screen.getByText(/49 BYN/)).toBeInTheDocument();
   expect(screen.getByText(/7 дней полного доступа/)).toBeInTheDocument();
-  expect(screen.getByText(/автор методики.*Людмила Ершова.*20 лет/i)).toBeInTheDocument();
+  expect(screen.getByText(/по методике Людмилы Ершовой.*20 лет/i)).toBeInTheDocument();
 });
 
 it('renders all five topic meanings and all supported answer formats', () => {

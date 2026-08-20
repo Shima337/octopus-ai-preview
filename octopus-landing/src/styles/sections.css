@@ -679,6 +679,10 @@
     gap: var(--space-2);
   }
 
+  .hero__intro {
+    display: contents;
+  }
+
   .hero__intro,
   .hero__offer,
   .hero__visual {
@@ -697,6 +701,7 @@
   }
 
   .hero .eyebrow {
+    order: 1;
     min-height: 2rem;
     margin-bottom: var(--space-1);
     padding: 0.3rem 0.7rem;
@@ -704,19 +709,30 @@
   }
 
   .hero h1 {
+    order: 2;
     margin-bottom: var(--space-2);
     font-size: clamp(2.15rem, 10.6vw, 2.7rem);
   }
 
   .hero__lead {
+    order: 5;
     margin-bottom: var(--space-1);
     font-size: 0.95rem;
     line-height: 1.4;
   }
 
   .hero__method {
+    order: 3;
     font-size: 0.8rem;
     line-height: 1.35;
+  }
+
+  .hero__visual {
+    order: 4;
+  }
+
+  .hero__offer {
+    order: 6;
   }
 
   .hero__offer,

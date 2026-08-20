@@ -24,7 +24,7 @@ export function Hero() {
                 Короткие объяснения, личная практика и проверка по каждой теме.
               </p>
               <p className="hero__method">
-                Автор методики — {teacher.name}. {teacher.experienceYears} лет готовит к ЦЭ/ЦТ.
+                По методике Людмилы Ершовой. {teacher.experienceYears} лет готовит к ЦЭ/ЦТ.
               </p>
             </div>
 
