@@ -18,7 +18,8 @@
 ## Technical verification
 
 - [ ] `VITE_TELEGRAM_BOT_URL=<real-url> npm run verify` completes without warnings: unit tests pass, Chromium/WebKit E2E tests pass, TypeScript passes, and Vite creates `dist/`.
-- [ ] `dist/` bundle/media audit confirms every referenced asset exists, all media is under `dist/media/`, no MOV/HEVC source is shipped, and the first screen has no video dependency.
+- [ ] `npm run audit:dist` confirms every referenced page-media/metadata asset exists, all page photo/video/poster media is under `dist/media/`, the only root metadata exceptions are the present and referenced `dist/og-image.jpg` and `dist/favicon.svg`, no MOV/HEVC source is shipped, and the first screen has no video dependency.
+- [ ] Deployed cache rules are verified: `dist/media/` uses the approved long-lived/purge-or-version policy, while `/og-image.jpg` and `/favicon.svg` revalidate or use a shorter lifetime and are purged when replaced.
 - [ ] Deployed site is checked on real current iOS/Safari and Android/Chrome devices at supported phone widths.
 - [ ] Every CTA, legal link, media control, and external link is checked on the deployed production URL.
 - [ ] Browser consoles and network panels are clean on the deployed production URL; analytics events reach the configured provider without leaking sensitive data.
@@ -36,8 +37,8 @@
 - Accessibility: **100** (required ≥90)
 - Best Practices: **100** (required ≥90)
 - SEO: **100**
-- [x] Safe-test-URL `npm run verify`: 34 unit tests and 19 Chromium/WebKit E2E tests passed; TypeScript and Vite build passed without warnings.
-- [x] Local `dist/` audit: all production references resolve; 26 files are isolated under `dist/media/`; no MOV/HEVC/H.265/HEIC file is shipped; every MP4 video stream is H.264 High/yuv420p.
+- [x] Safe-test-URL `npm run verify`: 39 unit tests and 19 Chromium/WebKit E2E tests passed; TypeScript, Vite build, and the executable artifact audit passed without warnings.
+- [x] Local `dist/` audit: all 27 production page-media/metadata references resolve; 26 page/support media files are isolated under `dist/media/`; the only root metadata assets are the required `dist/og-image.jpg` and `dist/favicon.svg`; no MOV/HEVC/H.265/HEIC file is shipped; every MP4 video stream is H.264 High/yuv420p.
 - [x] First-screen audit: the hero uses the teacher WebP and contains no video element; game/review videos appear only in later sections.
 
 Local evidence does not clear the owner-supplied gates or replace the deployed production and real-device checks above.

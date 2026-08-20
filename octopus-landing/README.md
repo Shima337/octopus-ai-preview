@@ -34,6 +34,8 @@ VITE_TELEGRAM_BOT_URL=https://t.me/octopus_test_bot npm run build
 
 `npm run verify` is the release verification command: unit tests, Chromium/WebKit E2E tests, TypeScript, and the production Vite build. It must complete without warnings.
 
+The production build finishes by running `npm run audit:dist`. This executable audit fails if page photo/video/poster media escapes `dist/media/`, if a referenced media/metadata asset is missing, if a forbidden MOV/HEVC-source extension is shipped, or if either declared root metadata asset is missing. The only media exceptions allowed at the `dist/` root are `og-image.jpg` and `favicon.svg`, because `index.html` references their stable root URLs.
+
 ## Media preparation
 
 The checked-in browser assets under `public/media/` are prepared from owner-supplied originals by `scripts/prepare-media.sh`. The full script expects its listed source files, `curl`, Python 3 with Pillow/WebP support, and FFmpeg (by default `/opt/homebrew/bin/ffmpeg`; override with `FFMPEG_BIN`). It:
@@ -60,8 +62,9 @@ Never add MOV/HEVC originals to `public/` or `dist/`. Review videos also require
 
 1. Complete every item in `RELEASE_CHECKLIST.md` and set the real production `VITE_TELEGRAM_BOT_URL` in the build environment.
 2. Run `npm run verify` and inspect the generated `dist/` directory.
-3. Deploy the contents of `dist/` at the site root on any static host. The app uses root-relative `/media/...` and legal-page URLs, so a subdirectory deployment requires a corresponding Vite base-path change.
-4. Configure the host to serve `index.html`, the three legal HTML documents, and `media/` unchanged. Give `dist/media/` an explicit CDN/cache policy and purge or version media when replacing a file.
-5. On the deployed URL, repeat the real-device, link, console, analytics, and Lighthouse checks in the release checklist before opening traffic.
+3. Deploy the contents of `dist/` at the site root on any static host. The app uses root-relative `/media/...`, `/og-image.jpg`, `/favicon.svg`, and legal-page URLs, so a subdirectory deployment requires a corresponding Vite base-path change.
+4. Configure the host to serve `index.html`, the three legal HTML documents, and `media/` unchanged. Keep all page photo/video/poster assets under `dist/media/`. The only root metadata exceptions are `dist/og-image.jpg` and `dist/favicon.svg`; both must exist at those stable URLs.
+5. Set an explicit CDN/cache policy: page media under `dist/media/` may use a long-lived policy when replacements are versioned or purged, while `og-image.jpg` and `favicon.svg` must use revalidation or a shorter lifetime and be purged whenever their contents change.
+6. On the deployed URL, repeat the real-device, link, console, analytics, and Lighthouse checks in the release checklist before opening traffic.
 
 Do not deploy a build made with the test bot URL. `dist/` is generated output and should be rebuilt for each release.

@@ -3,8 +3,9 @@
     "dev": "vite",
     "test": "vitest",
     "verify": "npm test -- --run && npm run test:e2e && npm run build",
-    "build": "node scripts/validate-production-env.mjs && tsc -b && vite build",
+    "build": "node scripts/validate-production-env.mjs && tsc -b && vite build && npm run audit:dist",
     "build:local": "tsc -b && vite build",
+    "audit:dist": "node scripts/audit-dist.mjs",
     "preview": "vite preview",
     "test:e2e": "env -u NO_COLOR playwright test"
   },
