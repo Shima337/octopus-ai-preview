@@ -2,6 +2,7 @@
   "scripts": {
     "dev": "vite",
     "test": "vitest",
+    "verify": "npm test -- --run && npm run test:e2e && npm run build",
     "build": "node scripts/validate-production-env.mjs && tsc -b && vite build",
     "build:local": "tsc -b && vite build",
     "preview": "vite preview",

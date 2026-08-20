@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
 
+test('publishes valid crawler instructions instead of the app fallback', async ({ request }) => {
+  const response = await request.get('/robots.txt');
+
+  expect(response.ok()).toBe(true);
+  expect(response.headers()['content-type']).toContain('text/plain');
+  expect(await response.text()).toMatch(/^User-agent: \*\s+Allow: \/\s*$/);
+});
+
 test('every primary CTA points directly to the configured bot', async ({ page }) => {
   await page.goto('/');
 
