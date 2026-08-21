@@ -2,7 +2,7 @@ import { DISTRICTS, SHIELD_PARTS, VIDEOS } from './content.js';
 import { createLocksState, evaluateLocks, renderLocks, updateLocks } from './chapters/locks.js';
 import { createMirrorState, evaluateMirror, renderMirror, updateMirror } from './chapters/mirror.js';
 import { createTrapsState, evaluateTrapCase, renderTraps, updateTraps } from './chapters/traps.js';
-import { chooseChatReply, evaluateChatChoices, renderChat, renderChatResult } from './chapters/chat.js';
+import { chooseChatReply, evaluateChatChoices, renderChat, renderChatResult, restoreChatChoices } from './chapters/chat.js';
 import { stateForPreview, transition } from './lesson-state.js';
 import { loadLesson, saveLesson } from './storage.js';
 import { renderShell } from './ui.js';
@@ -13,7 +13,7 @@ let state = loadLesson();
 let locksState = createLocksState();
 let mirrorState = createMirrorState();
 let trapsState = createTrapsState();
-let chatState = createChatState();
+let chatState = createChatState(state);
 
 export function eventFromControl(control) {
   const action = control?.dataset.action;
@@ -99,7 +99,7 @@ function dispatchChat(event) {
   };
 
   if (selection.finished) {
-    dispatch({ type: 'COMPLETE_CHAPTER', districtId: 'messages' });
+    dispatch({ type: 'COMPLETE_CHAPTER', districtId: 'messages', chatChoices: choices });
     app?.querySelector('[data-action="CLAIM_REWARD"]')?.focus();
     return;
   }
@@ -205,8 +205,16 @@ function focusScreenHeading() {
   heading?.focus();
 }
 
-function createChatState() {
-  return { nodeId: 'pass-request', choices: [], history: [], result: null };
+function createChatState(lessonState) {
+  const choices = lessonState?.screen === 'reward' && lessonState.activeDistrict === 'messages'
+    ? restoreChatChoices(lessonState.chatChoices)
+    : [];
+  return {
+    nodeId: 'pass-request',
+    choices,
+    history: [],
+    result: choices.length ? evaluateChatChoices(choices) : null,
+  };
 }
 
 function renderMirrorReward() {

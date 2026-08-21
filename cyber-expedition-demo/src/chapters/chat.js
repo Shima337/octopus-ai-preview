@@ -168,6 +168,28 @@ export function evaluateChatChoices(choices) {
   return { protectedData, avoidedEscalation, soughtHelp, summary };
 }
 
+export function normalizeChatChoiceRefs(refs) {
+  if (!Array.isArray(refs)) return [];
+  const normalized = [];
+  const seen = new Set();
+  for (const ref of refs) {
+    const choice = chooseChatReply(ref?.nodeId, ref?.replyId)?.choice;
+    if (!choice) continue;
+    const key = `${choice.nodeId}:${choice.replyId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push({ nodeId: choice.nodeId, replyId: choice.replyId });
+    if (normalized.length === CHAT_NODES.length) break;
+  }
+  return normalized;
+}
+
+export function restoreChatChoices(refs) {
+  return normalizeChatChoiceRefs(refs)
+    .map((ref) => chooseChatReply(ref.nodeId, ref.replyId)?.choice)
+    .filter(Boolean);
+}
+
 export function renderChat(state) {
   const node = getChatNode(state?.nodeId) ?? getChatNode('pass-request');
   const history = validOfficialChoices(state?.history ?? state?.choices ?? []);

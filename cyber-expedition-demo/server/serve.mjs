@@ -13,24 +13,11 @@ const MIME_TYPES = {
 
 export function createLessonServer({ rootDir } = {}) {
   return createServer((request, response) => {
-    const pathname = new URL(request.url, 'http://local').pathname;
-    if (request.method === 'GET' && pathname === '/api/health') {
-      return sendJson(response, 200, { ok: true });
-    }
     if (!['GET', 'HEAD'].includes(request.method)) return response.writeHead(405).end();
     const filePath = resolveStaticPath(rootDir, request.url);
     if (!filePath) return response.writeHead(404).end();
     return serveStatic(filePath, request.method, response);
   });
-}
-
-function sendJson(response, status, body) {
-  const payload = JSON.stringify(body);
-  response.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Content-Length': Buffer.byteLength(payload),
-  });
-  response.end(payload);
 }
 
 function resolveStaticPath(rootDir, requestUrl) {
@@ -70,7 +57,7 @@ function serveStatic(filePath, method, response) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const server = createLessonServer({ rootDir: process.cwd(), env: process.env });
+  const server = createLessonServer({ rootDir: process.cwd() });
   const port = Number(process.env.PORT) || 4177;
   server.listen(port, '127.0.0.1', () => {
     console.log(`Cyber expedition demo: http://127.0.0.1:${port}/`);

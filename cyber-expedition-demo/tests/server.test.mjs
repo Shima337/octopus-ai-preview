@@ -23,7 +23,7 @@ test('standalone server serves the shell without advertising external integratio
     const page = await fetch(`${running.baseUrl}/`);
     assert.equal(page.status, 200);
     assert.match(await page.text(), /Киберэкспедиция/);
-    assert.deepEqual(await (await fetch(`${running.baseUrl}/api/health`)).json(), { ok: true });
+    assert.equal((await fetch(`${running.baseUrl}/api/health`)).status, 404);
     const traversal = await fetch(`${running.baseUrl}/..%2F..%2Fetc%2Fpasswd`);
     assert.equal(traversal.status, 404);
   } finally {
@@ -49,7 +49,7 @@ test('starts when the server module is executed directly', async () => {
       (await started).toString().trim(),
       'Cyber expedition demo: http://127.0.0.1:4177/',
     );
-    assert.equal((await fetch('http://127.0.0.1:4177/api/health')).status, 200);
+    assert.equal((await fetch('http://127.0.0.1:4177/api/health')).status, 404);
   } finally {
     if (child.exitCode === null) {
       child.kill();

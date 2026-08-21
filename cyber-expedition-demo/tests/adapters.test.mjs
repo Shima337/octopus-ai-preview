@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getMediaModel } from '../src/media.js';
-import { createInitialState, transition } from '../src/lesson-state.js';
+import { createInitialState, stateForPreview, transition } from '../src/lesson-state.js';
 import { loadLesson, resetLesson, saveLesson } from '../src/storage.js';
 
 function createMemoryStorage(initial = {}) {
@@ -131,4 +131,25 @@ test('lesson storage preserves the messages media stage', () => {
   const restored = loadLesson(storage);
   assert.equal(restored.screen, 'messages-video');
   assert.equal(restored.activeDistrict, 'messages');
+});
+
+test('completed chat stores only allow-listed fixed choice identities for reload', () => {
+  const completed = transition(stateForPreview('chat'), {
+    type: 'COMPLETE_CHAPTER',
+    districtId: 'messages',
+    chatChoices: [
+      { nodeId: 'pass-request', replyId: 'refuse-photo', skill: 'forged', met: false },
+      { nodeId: 'stranger-pressure', replyId: 'stop-and-tell' },
+      { nodeId: 'unknown', replyId: 'send-secret', personalText: 'must not survive' },
+    ],
+  });
+  const expected = [
+    { nodeId: 'pass-request', replyId: 'refuse-photo' },
+    { nodeId: 'stranger-pressure', replyId: 'stop-and-tell' },
+  ];
+  assert.deepEqual(completed.chatChoices, expected);
+
+  const storage = createMemoryStorage();
+  assert.equal(saveLesson(completed, storage), true);
+  assert.deepEqual(loadLesson(storage).chatChoices, expected);
 });

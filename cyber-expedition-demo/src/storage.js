@@ -1,5 +1,6 @@
 import { createInitialState } from './lesson-state.js';
 import { DISTRICTS } from './content.js';
+import { normalizeChatChoiceRefs } from './chapters/chat.js';
 
 const STORAGE_KEY = 'cyber-expedition-progress-v1';
 const DISTRICT_IDS = DISTRICTS.map((district) => district.id);
@@ -44,6 +45,7 @@ function normalizeState(value) {
   state.screen = SCREENS.has(source.screen) ? source.screen : state.screen;
   state.activeDistrict = DISTRICT_IDS.includes(source.activeDistrict) ? source.activeDistrict : null;
   state.completedDistricts = orderedCompleted(source.completedDistricts);
+  state.chatChoices = normalizeChatChoiceRefs(source.chatChoices);
 
   state.unlockedDistricts = state.mode === 'preview'
     ? [...DISTRICT_IDS]

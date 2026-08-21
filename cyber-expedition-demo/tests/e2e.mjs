@@ -190,6 +190,10 @@ async function exerciseChildMode(viewport) {
     assert.match(await page.locator('[data-training-disclosure]').innerText(), /тренировочный макет/i);
     assert.match(await page.locator('[data-reward-part="help"]').innerText(), /помощ/i);
     assert.match(await page.locator('.progress').innerText(), /4\/4/);
+    await page.reload();
+    await assertPageFrame(page, viewport, 'reward');
+    assert.equal(await page.locator('[data-chat-skill][data-met="true"]').count(), 3);
+    assert.match(await page.locator('.progress').innerText(), /4\/4/);
     assert.deepEqual(failures, []);
   } finally {
     await page.close();

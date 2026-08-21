@@ -1,4 +1,5 @@
 import { DISTRICTS } from './content.js';
+import { normalizeChatChoiceRefs } from './chapters/chat.js';
 
 const DISTRICT_IDS = DISTRICTS.map((district) => district.id);
 const DISTRICT_PARTS = new Map(DISTRICTS.map((district) => [district.id, district.partId]));
@@ -67,7 +68,7 @@ export function transition(state, event) {
       return openDistrict(state, event.districtId);
 
     case 'COMPLETE_CHAPTER':
-      return completeChapter(state, event.districtId);
+      return completeChapter(state, event.districtId, event.chatChoices);
 
     case 'RETURN_TO_MAP':
       return state.screen === 'reward' ? { ...state, screen: 'map', activeDistrict: null } : state;
@@ -98,7 +99,7 @@ function openDistrict(state, districtId) {
   return screens ? { ...state, screen: screens.video, activeDistrict: districtId } : state;
 }
 
-function completeChapter(state, districtId) {
+function completeChapter(state, districtId, chatChoices) {
   const screens = DISTRICT_SCREENS[districtId];
   if (!screens || state.screen !== screens.chapter || !state.unlockedDistricts.includes(districtId)) return state;
 
@@ -108,6 +109,7 @@ function completeChapter(state, districtId) {
     screen: 'reward',
     activeDistrict: districtId,
     completedDistricts,
+    chatChoices: districtId === 'messages' ? normalizeChatChoiceRefs(chatChoices) : state.chatChoices,
     ...derivedProgress(completedDistricts),
   };
 }
