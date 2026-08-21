@@ -22,6 +22,7 @@ try {
 
   await exerciseLocksKeyboardOnly();
   await exerciseTrapsKeyboardOnly();
+  await exerciseChatKeyboardOnly();
   await verifyConfiguredMessageVideo();
 } finally {
   await browser.close();
@@ -171,6 +172,23 @@ async function exerciseChildMode(viewport) {
     await page.locator('[data-action="CLAIM_REWARD"]').click();
     await assertPageFrame(page, viewport, 'map');
     assert.equal(await page.locator('[data-district-id="messages"]:not([disabled])').count(), 1);
+
+    await page.locator('[data-district-id="messages"]').click();
+    await assertPageFrame(page, viewport, 'messages-video');
+    await page.locator('[data-action="SKIP_MEDIA"]').click();
+    await assertPageFrame(page, viewport, 'chat');
+    assert.equal(await page.locator('[data-chat-history] [data-chat-message]').count(), 1);
+    assert.equal(await page.locator('[data-screen="chat"] input, [data-screen="chat"] textarea, [data-screen="chat"] a[href]').count(), 0);
+
+    await page.locator('[data-chat-reply="refuse-photo"]').click();
+    assert.equal(await page.locator('[data-chat-history] [data-chat-message]').count(), 3);
+    await page.locator('[data-chat-reply="stop-and-tell"]').click();
+    await assertPageFrame(page, viewport, 'reward');
+    assert.equal(await page.locator('[data-chat-skill]').count(), 3);
+    assert.equal(await page.locator('[data-chat-skill][data-met="true"]').count(), 3);
+    assert.match(await page.locator('[data-training-disclosure]').innerText(), /тренировочный макет/i);
+    assert.match(await page.locator('[data-reward-part="help"]').innerText(), /помощ/i);
+    assert.match(await page.locator('.progress').innerText(), /4\/4/);
     assert.deepEqual(failures, []);
   } finally {
     await page.close();
@@ -215,8 +233,18 @@ async function exercisePreviewMode(viewport) {
     assert.equal(await page.locator('[data-media-mode="placeholder"]').count(), 1);
     await page.locator('[data-action="SKIP_MEDIA"]').click();
     await assertPageFrame(page, viewport, 'chat');
-    await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="voice"]').click();
-    await assertPageFrame(page, viewport, 'voice-prepare');
+
+    await page.locator('[data-chat-reply="send-photo"]').click();
+    assert.match(await page.locator('[data-chat-guidance]').innerText(), /не отправлено|исправить/i);
+    assert.equal(await page.locator('[data-chat-reply="correct-refusal"]').count(), 1);
+    await page.locator('[data-chat-reply="correct-refusal"]').click();
+    await page.locator('[data-chat-reply="argue-back"]').click();
+    assert.match(await page.locator('[data-chat-guidance]').innerText(), /спор|останов/i);
+    await page.locator('[data-chat-reply="stop-and-tell"]').click();
+    await assertPageFrame(page, viewport, 'reward');
+    assert.equal(await page.locator('[data-chat-skill][data-met="true"]').count(), 3);
+    assert.equal(await page.locator('[data-reward-part="help"]').count(), 1);
+    assert.match(await page.locator('.progress').innerText(), /4\/4/);
     assert.deepEqual(failures, []);
   } finally {
     await page.close();
@@ -348,6 +376,34 @@ async function assertTrapsFocus(page, datasetKey, expectedId) {
     await page.evaluate((key) => document.activeElement?.dataset[key] ?? null, datasetKey),
     expectedId,
   );
+}
+
+async function exerciseChatKeyboardOnly() {
+  const viewport = { width: 1280, height: 800 };
+  const { page, failures } = await monitoredPage(viewport);
+  try {
+    await page.goto(baseUrl);
+    await page.locator('[data-action="CHOOSE_PREVIEW_MODE"]').focus();
+    await page.keyboard.press('Enter');
+    await page.locator('[data-district-id="messages"]').focus();
+    await page.keyboard.press('Space');
+    await page.locator('[data-action="SKIP_MEDIA"]').focus();
+    await page.keyboard.press('Enter');
+    await assertPageFrame(page, viewport, 'chat');
+
+    await page.locator('[data-chat-reply="send-photo"]').focus();
+    await page.keyboard.press('Space');
+    assert.equal(await page.locator('[data-chat-reply="correct-refusal"]:focus').count(), 1);
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('[data-chat-reply="stop-and-tell"]:focus').count(), 1);
+    await page.keyboard.press('Space');
+
+    await assertPageFrame(page, viewport, 'reward');
+    assert.equal(await page.locator('[data-action="CLAIM_REWARD"]:focus').count(), 1);
+    assert.deepEqual(failures, []);
+  } finally {
+    await page.close();
+  }
 }
 
 async function verifyConfiguredMessageVideo() {

@@ -18,6 +18,14 @@ import {
   renderTraps,
   updateTraps,
 } from '../src/chapters/traps.js';
+import {
+  CHAT_NODES,
+  chooseChatReply,
+  evaluateChatChoices,
+  getChatNode,
+  renderChat,
+  renderChatResult,
+} from '../src/chapters/chat.js';
 
 test('safe post requires every identifying detail and a safe caption', () => {
   let state = createMirrorState();
@@ -233,4 +241,83 @@ test('trap state stores allow-listed decisions only and rendered messages stay l
   assert.match(html, /выиграл/i);
   assert.match(html, /Всё сообщение вымышлено/i);
   assert.doesNotMatch(html, /<input|<textarea|href=/i);
+});
+
+test('safe stranger branch protects data and reaches an adult', () => {
+  const first = chooseChatReply('pass-request', 'refuse-photo');
+  const second = chooseChatReply(first.nextNodeId, 'stop-and-tell');
+  const result = evaluateChatChoices([first.choice, second.choice]);
+
+  assert.deepEqual(result, {
+    protectedData: true,
+    avoidedEscalation: true,
+    soughtHelp: true,
+    summary: 'Ты сохранил личные данные, остановил разговор и выбрал помощь взрослого.',
+  });
+});
+
+test('bullying branch rewards evidence and help without requiring a rude reply', () => {
+  const first = chooseChatReply('bullying-message', 'save-evidence');
+  const second = chooseChatReply(first.nextNodeId, 'tell-adult');
+  const result = evaluateChatChoices([first.choice, second.choice]);
+
+  assert.equal(first.finished, false);
+  assert.equal(second.finished, true);
+  assert.equal(result.avoidedEscalation, true);
+  assert.equal(result.soughtHelp, true);
+});
+
+test('chat graph rejects forged node, reply, and safety values', () => {
+  const valid = chooseChatReply('pass-request', 'refuse-photo');
+
+  assert.ok(CHAT_NODES.length >= 6);
+  assert.equal(getChatNode('pass-request')?.id, 'pass-request');
+  assert.equal(getChatNode('forged-node'), null);
+  assert.equal(chooseChatReply('forged-node', 'refuse-photo'), null);
+  assert.equal(chooseChatReply('pass-request', 'forged-reply'), null);
+  assert.equal(evaluateChatChoices([{ ...valid.choice, met: false }]), null);
+  assert.equal(evaluateChatChoices([{ skill: 'forged-skill', met: true }]), null);
+  assert.equal(evaluateChatChoices([{ skill: 'seek-help', met: 'true' }]), null);
+});
+
+test('unsafe chat choices stay recoverable and safe retries count', () => {
+  const unsafePhoto = chooseChatReply('pass-request', 'send-photo');
+  const recoverPhoto = chooseChatReply(unsafePhoto.nextNodeId, 'correct-refusal');
+  const unsafeArgument = chooseChatReply(recoverPhoto.nextNodeId, 'argue-back');
+  const safeExit = chooseChatReply(unsafeArgument.nextNodeId, 'stop-and-tell');
+  const result = evaluateChatChoices([
+    unsafePhoto.choice,
+    recoverPhoto.choice,
+    unsafeArgument.choice,
+    safeExit.choice,
+  ]);
+
+  assert.equal(unsafePhoto.finished, false);
+  assert.equal(safeExit.finished, true);
+  assert.deepEqual(result, {
+    protectedData: true,
+    avoidedEscalation: true,
+    soughtHelp: true,
+    summary: 'Ты сохранил личные данные, остановил разговор и выбрал помощь взрослого.',
+  });
+});
+
+test('chat and result render fixed controls, three skills, and training disclosure', () => {
+  const first = chooseChatReply('pass-request', 'refuse-photo');
+  const chatHtml = renderChat({
+    nodeId: first.nextNodeId,
+    choices: [first.choice],
+    history: [first.choice],
+  });
+  const resultHtml = renderChatResult({ choices: [
+    first.choice,
+    chooseChatReply(first.nextNodeId, 'stop-and-tell').choice,
+  ] });
+
+  assert.match(chatHtml, /data-chat-history/);
+  assert.match(chatHtml, /data-chat-reply/);
+  assert.doesNotMatch(chatHtml, /<input|<textarea|href=/i);
+  assert.equal((resultHtml.match(/data-chat-skill=/g) ?? []).length, 3);
+  assert.match(resultHtml, /тренировочный макет/i);
+  assert.match(resultHtml, /data-reward-part="help"/);
 });

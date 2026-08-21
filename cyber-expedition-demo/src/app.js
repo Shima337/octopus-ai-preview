@@ -2,7 +2,8 @@ import { DISTRICTS, SHIELD_PARTS, VIDEOS } from './content.js';
 import { createLocksState, evaluateLocks, renderLocks, updateLocks } from './chapters/locks.js';
 import { createMirrorState, evaluateMirror, renderMirror, updateMirror } from './chapters/mirror.js';
 import { createTrapsState, evaluateTrapCase, renderTraps, updateTraps } from './chapters/traps.js';
-import { transition } from './lesson-state.js';
+import { chooseChatReply, evaluateChatChoices, renderChat, renderChatResult } from './chapters/chat.js';
+import { stateForPreview, transition } from './lesson-state.js';
 import { loadLesson, saveLesson } from './storage.js';
 import { renderShell } from './ui.js';
 
@@ -12,6 +13,7 @@ let state = loadLesson();
 let locksState = createLocksState();
 let mirrorState = createMirrorState();
 let trapsState = createTrapsState();
+let chatState = createChatState();
 
 export function eventFromControl(control) {
   const action = control?.dataset.action;
@@ -27,6 +29,9 @@ export function eventFromControl(control) {
   if (action === 'SELECT_2FA_STEP') return { type: action, stepId: control.dataset['2faStep'] };
   if (action === 'TOGGLE_TRAP_CLUE') return { type: 'TOGGLE_CLUE', clueId: control.dataset.trapClue };
   if (action === 'CHOOSE_TRAP_ACTION') return { type: 'CHOOSE_ACTION', actionId: control.dataset.trapAction };
+  if (action === 'CHOOSE_CHAT_REPLY') {
+    return { type: action, nodeId: control.dataset.chatNode, replyId: control.dataset.chatReply };
+  }
   if (action === 'CLAIM_REWARD') return { type: 'RETURN_TO_MAP' };
   return action ? { type: action } : null;
 }
@@ -35,9 +40,13 @@ function dispatch(event) {
   if (!event) return;
   const previousScreen = state.screen;
   state = transition(state, event);
+  if (state.mode === 'preview' && state.screen === 'chat' && previousScreen !== 'chat') {
+    state = stateForPreview('chat');
+  }
   if (state.screen === 'mirror' && previousScreen !== 'mirror') mirrorState = createMirrorState();
   if (state.screen === 'locks' && previousScreen !== 'locks') locksState = createLocksState();
   if (state.screen === 'traps' && previousScreen !== 'traps') trapsState = createTrapsState();
+  if (state.screen === 'chat' && previousScreen !== 'chat') chatState = createChatState();
   if (previousScreen === 'locks' && state.screen !== 'locks') locksState = createLocksState();
   if (previousScreen === 'traps' && state.screen !== 'traps') trapsState = createTrapsState();
   saveLesson(state);
@@ -73,6 +82,29 @@ function dispatchTraps(event) {
   }
   render();
   restoreTrapsFocus(event);
+}
+
+function dispatchChat(event) {
+  if (event.nodeId !== chatState.nodeId) return;
+  const selection = chooseChatReply(event.nodeId, event.replyId);
+  if (!selection) return;
+
+  const choices = [...chatState.choices, selection.choice];
+  chatState = {
+    nodeId: selection.nextNodeId,
+    choices,
+    history: [...chatState.history, selection.choice],
+    result: selection.finished ? evaluateChatChoices(choices) : null,
+  };
+
+  if (selection.finished) {
+    dispatch({ type: 'COMPLETE_CHAPTER', districtId: 'messages' });
+    app?.querySelector('[data-action="CLAIM_REWARD"]')?.focus();
+    return;
+  }
+
+  render();
+  app?.querySelector('[data-chat-reply]')?.focus();
 }
 
 function restoreLocksFocus(event) {
@@ -120,6 +152,7 @@ function render() {
   if (state.screen === 'mirror') screen?.replaceWith(fragment(renderMirror(mirrorState)));
   if (state.screen === 'locks') screen?.replaceWith(fragment(renderLocks(locksState)));
   if (state.screen === 'traps') screen?.replaceWith(fragment(renderTraps(trapsState)));
+  if (state.screen === 'chat') screen?.replaceWith(fragment(renderChat(chatState)));
   if (state.screen === 'reward' && state.activeDistrict === 'mirror') {
     screen?.replaceWith(fragment(renderMirrorReward()));
   }
@@ -128,6 +161,9 @@ function render() {
   }
   if (state.screen === 'reward' && state.activeDistrict === 'traps') {
     screen?.replaceWith(fragment(renderTrapsReward()));
+  }
+  if (state.screen === 'reward' && state.activeDistrict === 'messages') {
+    screen?.replaceWith(fragment(renderChatResult(chatState)));
   }
 }
 
@@ -147,6 +183,10 @@ app?.addEventListener('click', (event) => {
     dispatchTraps(nextEvent);
     return;
   }
+  if (state.screen === 'chat' && nextEvent?.type === 'CHOOSE_CHAT_REPLY') {
+    dispatchChat(nextEvent);
+    return;
+  }
   dispatch(nextEvent);
 });
 
@@ -156,6 +196,10 @@ function fragment(html) {
   const template = document.createElement('template');
   template.innerHTML = html.trim();
   return template.content.firstElementChild;
+}
+
+function createChatState() {
+  return { nodeId: 'pass-request', choices: [], history: [], result: null };
 }
 
 function renderMirrorReward() {
