@@ -44,6 +44,34 @@ async function exerciseChildMode(viewport) {
     const lockedDistrict = page.locator('[data-district-id="locks"][disabled]');
     assert.equal(await lockedDistrict.count(), 1);
     assert.ok(Number(await lockedDistrict.evaluate((node) => getComputedStyle(node).opacity)) < 1);
+
+    await page.locator('[data-district-id="mirror"]').click();
+    await assertPageFrame(page, viewport, 'mirror-video');
+    await page.locator('[data-action="SKIP_MEDIA"]').click();
+    await assertPageFrame(page, viewport, 'mirror');
+    assert.equal(await page.locator('[data-mirror-detail]:visible').count(), 6);
+    assert.equal(await page.locator('[data-mirror-caption]:visible').count(), 3);
+
+    await page.locator('[data-mirror-detail="cat"]').click();
+    assert.equal(await page.locator('[data-mirror-detail="cat"]').getAttribute('aria-pressed'), 'true');
+    await page.locator('[data-action="SUBMIT_MIRROR"]').click();
+    assert.match(await page.locator('[data-mirror-hint]').innerText(), /место|школ/i);
+    assert.match(await page.locator('[data-mirror-found]').innerText(), /0\s*из\s*4/i);
+
+    for (const detailId of ['school-sign', 'geotag', 'pass-card', 'house-number']) {
+      await page.locator(`[data-mirror-detail="${detailId}"]`).click();
+    }
+    await page.locator('[data-mirror-caption="cat-day"]').click();
+    await page.locator('[data-action="SUBMIT_MIRROR"]').click();
+
+    await assertPageFrame(page, viewport, 'reward');
+    assert.equal(await page.locator('[data-mirror-comparison="before"]:visible').count(), 1);
+    assert.equal(await page.locator('[data-mirror-comparison="after"]:visible').count(), 1);
+    assert.match(await page.locator('[data-reward-part]').innerText(), /личные данные/i);
+    await page.locator('[data-action="CLAIM_REWARD"]').click();
+
+    await assertPageFrame(page, viewport, 'map');
+    assert.equal(await page.locator('[data-district-id="locks"]:not([disabled])').count(), 1);
     assert.deepEqual(failures, []);
   } finally {
     await page.close();
@@ -64,6 +92,11 @@ async function exercisePreviewMode(viewport) {
     const previewControls = page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage]');
     assert.equal(await previewControls.count(), 8);
     assert.equal(await page.locator('[data-district-id]:not([disabled])').count(), 4);
+    await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="mirror"]').click();
+    await assertPageFrame(page, viewport, 'mirror-video');
+    await page.locator('[data-action="SKIP_MEDIA"]').click();
+    await assertPageFrame(page, viewport, 'mirror');
+    await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="map"]').click();
     await page.locator('[data-district-id="locks"]').click();
     await assertPageFrame(page, viewport, 'locks-video');
     await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="map"]').click();
