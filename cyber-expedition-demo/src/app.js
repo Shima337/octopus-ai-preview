@@ -51,9 +51,27 @@ function dispatchLocks(event) {
   locksState = updateLocks(locksState, event);
   if (evaluateLocks(locksState).complete) {
     dispatch({ type: 'COMPLETE_CHAPTER', districtId: 'locks' });
+    app?.querySelector('[data-action="CLAIM_REWARD"]')?.focus();
     return;
   }
   render();
+  restoreLocksFocus(event);
+}
+
+function restoreLocksFocus(event) {
+  let control = null;
+  if (event.type === 'CLASSIFY_PASSWORD_CARD') {
+    control = [...app.querySelectorAll('[data-password-card]')]
+      .find((item) => item.dataset.passwordCard === event.cardId);
+  }
+  if (event.type === 'ADD_PHRASE_CARD') {
+    control = app.querySelector('[data-phrase-card]:not([disabled])')
+      ?? app.querySelector('[data-2fa-step]:not([disabled])');
+  }
+  if (event.type === 'SELECT_2FA_STEP') {
+    control = app.querySelector('[data-2fa-step]:not([disabled])');
+  }
+  control?.focus();
 }
 
 function render() {

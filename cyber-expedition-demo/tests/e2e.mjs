@@ -20,6 +20,7 @@ try {
     await exercisePreviewMode(viewport);
   }
 
+  await exerciseLocksKeyboardOnly();
   await verifyConfiguredMessageVideo();
 } finally {
   await browser.close();
@@ -161,6 +162,69 @@ async function exercisePreviewMode(viewport) {
   } finally {
     await page.close();
   }
+}
+
+async function exerciseLocksKeyboardOnly() {
+  const viewport = { width: 1280, height: 800 };
+  const { page, failures } = await monitoredPage(viewport);
+  try {
+    await page.goto(baseUrl);
+    await page.locator('[data-action="CHOOSE_PREVIEW_MODE"]').focus();
+    await page.keyboard.press('Enter');
+    await page.locator('[data-district-id="locks"]').focus();
+    await page.keyboard.press('Space');
+    await assertPageFrame(page, viewport, 'locks-video');
+    await page.locator('[data-action="SKIP_MEDIA"]').focus();
+    await page.keyboard.press('Enter');
+    await assertPageFrame(page, viewport, 'locks');
+
+    for (const [cardId, key] of [
+      ['digits', 'Enter'], ['hero-name', 'Space'], ['long-random-phrase', 'Enter'],
+    ]) {
+      await page.locator(`[data-password-card="${cardId}"]`).focus();
+      await page.keyboard.press(key);
+      await assertLocksFocus(page, 'passwordCard', cardId);
+    }
+
+    for (const [cardId, expectedNext, key] of [
+      ['rocket', 'forest', 'Space'], ['forest', 'teacup', 'Enter'], ['teacup', null, 'Space'],
+    ]) {
+      await page.locator(`[data-phrase-card="${cardId}"]`).focus();
+      await page.keyboard.press(key);
+      if (expectedNext) await assertLocksFocus(page, 'phraseCard', expectedNext);
+      else await assertLocksFocus(page, '2faStep', 'password');
+    }
+
+    await page.locator('[data-2fa-step="trusted-device"]').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('[data-2fa-hint]').count(), 1);
+    await assertLocksFocus(page, '2faStep', 'password');
+
+    for (const [stepId, expectedNext, key] of [
+      ['password', 'trusted-device', 'Space'],
+      ['trusted-device', 'keep-code-secret', 'Enter'],
+    ]) {
+      await assertLocksFocus(page, '2faStep', stepId);
+      await page.keyboard.press(key);
+      await assertLocksFocus(page, '2faStep', expectedNext);
+    }
+    await page.keyboard.press('Space');
+
+    await assertPageFrame(page, viewport, 'reward');
+    assert.equal(await page.locator('[data-action="CLAIM_REWARD"]:focus').count(), 1);
+    assert.equal(await page.locator('[data-reward-part="secret"]').count(), 1);
+    assert.deepEqual(failures, []);
+  } finally {
+    await page.close();
+  }
+}
+
+async function assertLocksFocus(page, datasetKey, expectedId) {
+  assert.equal(await page.locator('[data-screen="locks"] :focus').count(), 1);
+  assert.equal(
+    await page.evaluate((key) => document.activeElement?.dataset[key] ?? null, datasetKey),
+    expectedId,
+  );
 }
 
 async function verifyConfiguredMessageVideo() {
