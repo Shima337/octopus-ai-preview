@@ -8,6 +8,7 @@ const botUrl = (
   ?? ''
 ).trim();
 const telegramUrlPattern = /^(?:https:\/\/t\.me\/|tg:\/\/resolve\?domain=)([A-Za-z0-9_]+)$/;
+const campaignClickPattern = /^https:\/\/web\.ct-bratan\.by\/api\/marketing\/click(?:\?funnel=learning_path)?$/;
 const placeholderNamePatterns = [/replace_with_real_bot/i, /example/i, /localhost/i];
 const nonProductionNamePatterns = [
   /(?:^|_)(?:test(?:ing)?|demo|dev(?:elopment)?|stag(?:e|ing)|qa)(?:_|$)/i,
@@ -16,8 +17,9 @@ const forbiddenNamePatterns = isDraftValidation
   ? placeholderNamePatterns
   : [...placeholderNamePatterns, ...nonProductionNamePatterns];
 const botName = botUrl.match(telegramUrlPattern)?.[1];
+const isCampaignClick = campaignClickPattern.test(botUrl);
 
-if (!botName || forbiddenNamePatterns.some((pattern) => pattern.test(botName))) {
+if ((!botName && !isCampaignClick) || (botName && forbiddenNamePatterns.some((pattern) => pattern.test(botName)))) {
   console.error('A real VITE_TELEGRAM_BOT_URL is required for production.');
   process.exitCode = 1;
 }

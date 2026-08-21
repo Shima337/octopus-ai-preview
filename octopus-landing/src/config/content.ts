@@ -18,8 +18,10 @@ export type SiteContent = {
   reviews: MediaItem[];
 };
 
+const defaultTelegramUrl = 'https://web.ct-bratan.by/api/marketing/click?funnel=learning_path';
+
 export const siteContent: SiteContent = {
-  telegramUrl: import.meta.env.VITE_TELEGRAM_BOT_URL ?? '',
+  telegramUrl: import.meta.env.VITE_TELEGRAM_BOT_URL || defaultTelegramUrl,
   liveCourseUrl: 'https://www.ct-bratan.by/',
   aiPrice: 49,
   livePrice: 199,

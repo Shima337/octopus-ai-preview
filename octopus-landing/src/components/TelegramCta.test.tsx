@@ -1,6 +1,13 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import * as analytics from '../lib/analytics';
+
+vi.mock('../config/content', () => ({
+  siteContent: {
+    telegramUrl: 'https://t.me/octopus_test_bot',
+  },
+}));
+
 import { TelegramCta } from './TelegramCta';
 
 afterEach(() => {

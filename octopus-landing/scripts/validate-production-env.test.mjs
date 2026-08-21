@@ -63,6 +63,12 @@ it('loads VITE_TELEGRAM_BOT_URL from a Vite-compatible .env.local file', () => {
   expect(result.status).toBe(0);
 });
 
+it('accepts the configured campaign tracking URL', () => {
+  const result = runValidator({ botUrl: 'https://web.ct-bratan.by/api/marketing/click?funnel=learning_path' });
+
+  expect(result.status).toBe(0);
+});
+
 it('gives an explicit shell value precedence over .env.local', () => {
   const cwd = createEnvDirectory('VITE_TELEGRAM_BOT_URL=https://t.me/example_bot\n');
 

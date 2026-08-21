@@ -13,10 +13,10 @@ function App() {
     <>
       <main className="page-shell">
         <Hero />
+        <Reviews />
         <TopicJourney />
         <AiProof />
         <Games />
-        <Reviews />
         <Pricing />
         <Faq />
         <FinalCta />
