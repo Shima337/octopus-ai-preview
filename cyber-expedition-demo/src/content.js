@@ -13,7 +13,13 @@ export const SHIELD_PARTS = [
 ];
 
 export const VIDEOS = [
-  { id: 'city-intro', source: null, poster: null, captions: null, audio: null },
+  {
+    id: 'city-intro',
+    source: '/media/city-intro.mp4',
+    poster: null,
+    captions: '/media/city-intro.ru.vtt',
+    audio: null,
+  },
   { id: 'mirror-post', source: null, poster: null, captions: null, audio: null },
   { id: 'secret-locks', source: null, poster: null, captions: null, audio: null },
   { id: 'trick-market', source: null, poster: null, captions: null, audio: null },

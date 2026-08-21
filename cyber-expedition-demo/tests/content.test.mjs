@@ -16,6 +16,20 @@ test('showcase defines four districts, four shield parts, and five media slots',
   assert.equal(VIDEOS.length, 5);
 });
 
+test('only the supplied city introduction video is configured', () => {
+  assert.deepEqual(getVideo('city-intro'), {
+    id: 'city-intro',
+    source: '/media/city-intro.mp4',
+    poster: null,
+    captions: '/media/city-intro.ru.vtt',
+    audio: null,
+  });
+  assert.deepEqual(
+    VIDEOS.filter((video) => video.source).map((video) => video.id),
+    ['city-intro'],
+  );
+});
+
 test('content contains no working URLs or prompts for real personal data', () => {
   const text = JSON.stringify({ DISTRICTS, VIDEOS, SHIELD_PARTS });
   assert.doesNotMatch(text, /https?:\/\//i);

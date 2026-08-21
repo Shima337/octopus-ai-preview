@@ -41,7 +41,11 @@ async function exerciseChildMode(viewport) {
     await childButton.focus();
     await page.keyboard.press('Enter');
     await assertPageFrame(page, viewport, 'intro-video');
-    assert.equal(await page.locator('[data-media-mode="placeholder"]').count(), 1);
+    const introVideo = page.locator('video.media-player');
+    assert.equal(await introVideo.count(), 1);
+    assert.equal(await introVideo.getAttribute('autoplay'), null);
+    assert.equal(await introVideo.locator('source').getAttribute('src'), '/media/city-intro.mp4');
+    assert.equal(await introVideo.locator('track[srclang="ru"]').getAttribute('src'), '/media/city-intro.ru.vtt');
 
     await page.locator('[data-action="SKIP_MEDIA"]').click();
     await assertPageFrame(page, viewport, 'map');
@@ -508,7 +512,10 @@ async function verifyConfiguredIntroAudio() {
     await page.goto(baseUrl);
     await page.evaluate(async () => {
       const { VIDEOS } = await import('/src/content.js');
-      VIDEOS.find((video) => video.id === 'city-intro').audio = '/tests/fixtures/sample.mp3';
+      const intro = VIDEOS.find((video) => video.id === 'city-intro');
+      intro.source = null;
+      intro.captions = null;
+      intro.audio = '/tests/fixtures/sample.mp3';
     });
     await page.locator('[data-action="CHOOSE_CHILD_MODE"]').click();
     await assertPageFrame(page, viewport, 'intro-video');
