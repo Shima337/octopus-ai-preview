@@ -21,6 +21,7 @@ try {
   }
 
   await exerciseLocksKeyboardOnly();
+  await exerciseTrapsKeyboardOnly();
   await verifyConfiguredMessageVideo();
 } finally {
   await browser.close();
@@ -118,6 +119,55 @@ async function exerciseChildMode(viewport) {
     await page.locator('[data-action="CLAIM_REWARD"]').click();
     await assertPageFrame(page, viewport, 'map');
     assert.equal(await page.locator('[data-district-id="traps"]:not([disabled])').count(), 1);
+
+    await page.locator('[data-district-id="traps"]').click();
+    await assertPageFrame(page, viewport, 'traps-video');
+    await page.locator('[data-action="SKIP_MEDIA"]').click();
+    await assertPageFrame(page, viewport, 'traps');
+    assert.match(await page.locator('[data-trap-message]').innerText(), /выиграл/i);
+    assert.equal(await page.locator('[data-trap-clue]:visible').count(), 3);
+    assert.equal(await page.locator('[data-trap-action]:visible').count(), 2);
+    assert.equal(await page.locator('[data-screen="traps"] a[href], [data-screen="traps"] input, [data-screen="traps"] textarea').count(), 0);
+
+    await page.locator('[data-trap-clue="prize"]').click();
+    await page.locator('[data-action="SUBMIT_TRAP"]').click();
+    assert.match(await page.locator('[data-trap-hint]').innerText(), /спеш|срок/i);
+    assert.match(await page.locator('[data-trap-found]').innerText(), /1\s*из\s*3/i);
+
+    for (const clueId of ['timer', 'secret-request']) {
+      await page.locator(`[data-trap-clue="${clueId}"]`).click();
+    }
+    await page.locator('[data-trap-action="follow-request"]').click();
+    await page.locator('[data-action="SUBMIT_TRAP"]').click();
+    assert.match(await page.locator('[data-trap-action-feedback]').innerText(), /данн|отправ/i);
+    assert.equal(await page.locator('[data-trap-clue][aria-pressed="true"]').count(), 3);
+    await page.locator('[data-trap-action="tell-adult"]').click();
+    await page.locator('[data-action="SUBMIT_TRAP"]').click();
+    await page.locator('[data-action="NEXT_TRAP_CASE"]').click();
+
+    assert.match(await page.locator('[data-trap-message]').innerText(), /скриншот/i);
+    for (const clueId of ['screenshot', 'confirmation-code', 'unknown-contact']) {
+      await page.locator(`[data-trap-clue="${clueId}"]`).click();
+    }
+    await page.locator('[data-trap-action="tell-adult"]').click();
+    await page.locator('[data-action="SUBMIT_TRAP"]').click();
+    await page.locator('[data-action="NEXT_TRAP_CASE"]').click();
+
+    assert.match(await page.locator('[data-trap-message]').innerText(), /парол/i);
+    assert.equal(await page.locator('[data-trap-action]:visible').count(), 4);
+    for (const clueId of ['unusual-style', 'unexpected-link', 'password-request']) {
+      await page.locator(`[data-trap-clue="${clueId}"]`).click();
+    }
+    await page.locator('[data-trap-action="verify-another-way"]').click();
+    await page.locator('[data-action="SUBMIT_TRAP"]').click();
+    await page.locator('[data-action="NEXT_TRAP_CASE"]').click();
+
+    await assertPageFrame(page, viewport, 'reward');
+    assert.match(await page.locator('[data-traps-summary]').innerText(), /взросл/i);
+    assert.match(await page.locator('[data-reward-part="check"]').innerText(), /проверк/i);
+    await page.locator('[data-action="CLAIM_REWARD"]').click();
+    await assertPageFrame(page, viewport, 'map');
+    assert.equal(await page.locator('[data-district-id="messages"]:not([disabled])').count(), 1);
     assert.deepEqual(failures, []);
   } finally {
     await page.close();
@@ -150,6 +200,12 @@ async function exercisePreviewMode(viewport) {
     assert.equal(await page.locator('input[type="text"], input[type="password"], textarea').count(), 0);
     await page.locator('[data-password-card="digits"]').click();
     assert.match(await page.locator('[data-password-card="digits"]').innerText(), /легко угадать/i);
+    await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="map"]').click();
+    await page.locator('[data-district-id="traps"]').click();
+    await assertPageFrame(page, viewport, 'traps-video');
+    await page.locator('[data-action="SKIP_MEDIA"]').click();
+    await assertPageFrame(page, viewport, 'traps');
+    assert.equal(await page.locator('[data-trap-clue]:visible').count(), 3);
     await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="map"]').click();
     await page.locator('[data-district-id="messages"]').click();
     await assertPageFrame(page, viewport, 'messages-video');
@@ -221,6 +277,61 @@ async function exerciseLocksKeyboardOnly() {
 
 async function assertLocksFocus(page, datasetKey, expectedId) {
   assert.equal(await page.locator('[data-screen="locks"] :focus').count(), 1);
+  assert.equal(
+    await page.evaluate((key) => document.activeElement?.dataset[key] ?? null, datasetKey),
+    expectedId,
+  );
+}
+
+async function exerciseTrapsKeyboardOnly() {
+  const viewport = { width: 1280, height: 800 };
+  const { page, failures } = await monitoredPage(viewport);
+  try {
+    await page.goto(baseUrl);
+    await page.locator('[data-action="CHOOSE_PREVIEW_MODE"]').focus();
+    await page.keyboard.press('Enter');
+    await page.locator('[data-district-id="traps"]').focus();
+    await page.keyboard.press('Space');
+    await page.locator('[data-action="SKIP_MEDIA"]').focus();
+    await page.keyboard.press('Enter');
+    await assertPageFrame(page, viewport, 'traps');
+
+    await page.locator('[data-trap-clue="prize"]').focus();
+    await page.keyboard.press('Space');
+    await assertTrapsFocus(page, 'trapClue', 'prize');
+    await page.locator('[data-action="SUBMIT_TRAP"]').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('[data-trap-hint]').count(), 1);
+    assert.equal(await page.locator('[data-action="SUBMIT_TRAP"]:focus').count(), 1);
+
+    for (const clueId of ['timer', 'secret-request']) {
+      await page.locator(`[data-trap-clue="${clueId}"]`).focus();
+      await page.keyboard.press('Enter');
+      await assertTrapsFocus(page, 'trapClue', clueId);
+    }
+    await page.locator('[data-trap-action="follow-request"]').focus();
+    await page.keyboard.press('Space');
+    await assertTrapsFocus(page, 'trapAction', 'follow-request');
+    await page.locator('[data-action="SUBMIT_TRAP"]').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('[data-trap-action-feedback]').count(), 1);
+    await assertTrapsFocus(page, 'trapAction', 'follow-request');
+
+    await page.locator('[data-trap-action="tell-adult"]').focus();
+    await page.keyboard.press('Enter');
+    await page.locator('[data-action="SUBMIT_TRAP"]').focus();
+    await page.keyboard.press('Space');
+    assert.equal(await page.locator('[data-action="NEXT_TRAP_CASE"]:focus').count(), 1);
+    await page.keyboard.press('Enter');
+    await assertTrapsFocus(page, 'trapClue', 'screenshot');
+    assert.deepEqual(failures, []);
+  } finally {
+    await page.close();
+  }
+}
+
+async function assertTrapsFocus(page, datasetKey, expectedId) {
+  assert.equal(await page.locator('[data-screen="traps"] :focus').count(), 1);
   assert.equal(
     await page.evaluate((key) => document.activeElement?.dataset[key] ?? null, datasetKey),
     expectedId,

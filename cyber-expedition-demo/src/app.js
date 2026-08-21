@@ -1,6 +1,7 @@
 import { DISTRICTS, SHIELD_PARTS, VIDEOS } from './content.js';
 import { createLocksState, evaluateLocks, renderLocks, updateLocks } from './chapters/locks.js';
 import { createMirrorState, evaluateMirror, renderMirror, updateMirror } from './chapters/mirror.js';
+import { createTrapsState, evaluateTrapCase, renderTraps, updateTraps } from './chapters/traps.js';
 import { transition } from './lesson-state.js';
 import { loadLesson, saveLesson } from './storage.js';
 import { renderShell } from './ui.js';
@@ -10,6 +11,7 @@ const content = { districts: DISTRICTS, shieldParts: SHIELD_PARTS, videos: VIDEO
 let state = loadLesson();
 let locksState = createLocksState();
 let mirrorState = createMirrorState();
+let trapsState = createTrapsState();
 
 export function eventFromControl(control) {
   const action = control?.dataset.action;
@@ -23,6 +25,8 @@ export function eventFromControl(control) {
   if (action === 'CLASSIFY_PASSWORD_CARD') return { type: action, cardId: control.dataset.passwordCard };
   if (action === 'ADD_PHRASE_CARD') return { type: action, cardId: control.dataset.phraseCard };
   if (action === 'SELECT_2FA_STEP') return { type: action, stepId: control.dataset['2faStep'] };
+  if (action === 'TOGGLE_TRAP_CLUE') return { type: 'TOGGLE_CLUE', clueId: control.dataset.trapClue };
+  if (action === 'CHOOSE_TRAP_ACTION') return { type: 'CHOOSE_ACTION', actionId: control.dataset.trapAction };
   if (action === 'CLAIM_REWARD') return { type: 'RETURN_TO_MAP' };
   return action ? { type: action } : null;
 }
@@ -33,7 +37,9 @@ function dispatch(event) {
   state = transition(state, event);
   if (state.screen === 'mirror' && previousScreen !== 'mirror') mirrorState = createMirrorState();
   if (state.screen === 'locks' && previousScreen !== 'locks') locksState = createLocksState();
+  if (state.screen === 'traps' && previousScreen !== 'traps') trapsState = createTrapsState();
   if (previousScreen === 'locks' && state.screen !== 'locks') locksState = createLocksState();
+  if (previousScreen === 'traps' && state.screen !== 'traps') trapsState = createTrapsState();
   saveLesson(state);
   render();
 }
@@ -58,6 +64,17 @@ function dispatchLocks(event) {
   restoreLocksFocus(event);
 }
 
+function dispatchTraps(event) {
+  trapsState = updateTraps(trapsState, event);
+  if (event.type === 'NEXT_TRAP_CASE' && trapsState.readyForReward) {
+    dispatch({ type: 'COMPLETE_CHAPTER', districtId: 'traps' });
+    app?.querySelector('[data-action="CLAIM_REWARD"]')?.focus();
+    return;
+  }
+  render();
+  restoreTrapsFocus(event);
+}
+
 function restoreLocksFocus(event) {
   let control = null;
   if (event.type === 'CLASSIFY_PASSWORD_CARD') {
@@ -74,17 +91,43 @@ function restoreLocksFocus(event) {
   control?.focus();
 }
 
+function restoreTrapsFocus(event) {
+  let control = null;
+  if (event.type === 'TOGGLE_CLUE') {
+    control = [...app.querySelectorAll('[data-trap-clue]')]
+      .find((item) => item.dataset.trapClue === event.clueId);
+  }
+  if (event.type === 'CHOOSE_ACTION') {
+    control = [...app.querySelectorAll('[data-trap-action]')]
+      .find((item) => item.dataset.trapAction === event.actionId);
+  }
+  if (event.type === 'SUBMIT_TRAP') {
+    const result = evaluateTrapCase(trapsState);
+    control = result.complete
+      ? app.querySelector('[data-action="NEXT_TRAP_CASE"]')
+      : result.actionFeedback
+        ? app.querySelector(`[data-trap-action="${trapsState.actionId}"]`)
+        : app.querySelector('[data-action="SUBMIT_TRAP"]');
+  }
+  if (event.type === 'NEXT_TRAP_CASE') control = app.querySelector('[data-trap-clue]');
+  control?.focus();
+}
+
 function render() {
   if (!app) return;
   app.innerHTML = renderShell(state, content);
   const screen = app.querySelector('#main-content > [data-screen]');
   if (state.screen === 'mirror') screen?.replaceWith(fragment(renderMirror(mirrorState)));
   if (state.screen === 'locks') screen?.replaceWith(fragment(renderLocks(locksState)));
+  if (state.screen === 'traps') screen?.replaceWith(fragment(renderTraps(trapsState)));
   if (state.screen === 'reward' && state.activeDistrict === 'mirror') {
     screen?.replaceWith(fragment(renderMirrorReward()));
   }
   if (state.screen === 'reward' && state.activeDistrict === 'locks') {
     screen?.replaceWith(fragment(renderLocksReward()));
+  }
+  if (state.screen === 'reward' && state.activeDistrict === 'traps') {
+    screen?.replaceWith(fragment(renderTrapsReward()));
   }
 }
 
@@ -98,6 +141,10 @@ app?.addEventListener('click', (event) => {
   }
   if (state.screen === 'locks' && ['CLASSIFY_PASSWORD_CARD', 'ADD_PHRASE_CARD', 'SELECT_2FA_STEP'].includes(nextEvent?.type)) {
     dispatchLocks(nextEvent);
+    return;
+  }
+  if (state.screen === 'traps' && ['TOGGLE_CLUE', 'CHOOSE_ACTION', 'SUBMIT_TRAP', 'NEXT_TRAP_CASE'].includes(nextEvent?.type)) {
+    dispatchTraps(nextEvent);
     return;
   }
   dispatch(nextEvent);
@@ -162,6 +209,21 @@ function renderLocksReward() {
       </div>
       <div class="locks-reward__claim">
         <div class="shield-part" data-reward-part="secret"><span aria-hidden="true">🧩</span><p>Часть щита<br><strong>«Секретный ключ»</strong></p></div>
+        <button class="button button--primary" type="button" data-action="CLAIM_REWARD">Забрать деталь и вернуться на карту <span aria-hidden="true">→</span></button>
+      </div>
+    </section>`;
+}
+
+function renderTrapsReward() {
+  return `
+    <section class="traps-reward" data-screen="reward">
+      <div class="traps-reward__badge" aria-hidden="true">🔎 🛡️</div>
+      <p class="eyebrow">Задание выполнено!</p>
+      <h1>Ты стал детективом ловушек</h1>
+      <p class="lead" data-traps-summary>Ты научился замечать спешку, подарки, просьбы о секретах и странные ссылки. Остановись, проверь ситуацию другим способом и обязательно расскажи взрослому, которому доверяешь.</p>
+      <div class="traps-reward__rule"><span aria-hidden="true">⏸️</span><p><strong>Пауза — Проверка — Взрослый.</strong><br>Эти три шага помогают не спешить и не отдавать секреты.</p></div>
+      <div class="traps-reward__claim">
+        <div class="shield-part" data-reward-part="check"><span aria-hidden="true">🧩</span><p>Часть щита<br><strong>«Проверка»</strong></p></div>
         <button class="button button--primary" type="button" data-action="CLAIM_REWARD">Забрать деталь и вернуться на карту <span aria-hidden="true">→</span></button>
       </div>
     </section>`;

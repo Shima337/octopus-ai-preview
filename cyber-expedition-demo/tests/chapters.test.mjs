@@ -11,6 +11,13 @@ import {
   evaluateLocks,
   updateLocks,
 } from '../src/chapters/locks.js';
+import {
+  TRAP_CASES,
+  createTrapsState,
+  evaluateTrapCase,
+  renderTraps,
+  updateTraps,
+} from '../src/chapters/traps.js';
 
 test('safe post requires every identifying detail and a safe caption', () => {
   let state = createMirrorState();
@@ -128,4 +135,89 @@ test('locks state accepts allow-listed cards only and never stores submitted tex
 
   assert.deepEqual(state, createLocksState());
   assert.equal('freeText' in state, false);
+});
+
+test('every trap case contains three readable clues and a safe adult action', () => {
+  assert.equal(TRAP_CASES.length, 3);
+  for (const item of TRAP_CASES) {
+    assert.ok(item.message.length > 70);
+    assert.equal(/https?:\/\/|www\./i.test(item.message), false);
+    assert.ok(item.clues.filter((clue) => clue.risky).length >= 3);
+    assert.ok(item.clues.every((clue) => clue.label && clue.category));
+    assert.ok(item.actions.every((action) => action.label && action.explanation));
+    assert.ok(item.actions.some((action) => action.id === 'tell-adult' && action.safe));
+  }
+});
+
+test('case advances only after all risky clues and one safe action', () => {
+  let state = createTrapsState();
+  for (const clueId of ['prize', 'timer', 'secret-request']) {
+    state = updateTraps(state, { type: 'TOGGLE_CLUE', clueId });
+  }
+  state = updateTraps(state, { type: 'CHOOSE_ACTION', actionId: 'tell-adult' });
+
+  assert.equal(evaluateTrapCase(state).complete, true);
+  state = updateTraps(state, { type: 'NEXT_TRAP_CASE' });
+  assert.equal(state.caseIndex, 1);
+  assert.deepEqual(state.solvedCaseIds, ['prize-message']);
+});
+
+test('an incomplete submission reveals exactly one clue-category hint', () => {
+  let state = updateTraps(createTrapsState(), { type: 'TOGGLE_CLUE', clueId: 'prize' });
+  state = updateTraps(state, { type: 'SUBMIT_TRAP' });
+  const result = evaluateTrapCase(state);
+
+  assert.equal(result.complete, false);
+  assert.equal(result.found, 1);
+  assert.deepEqual(result.missed, ['timer', 'secret-request']);
+  assert.match(result.hint, /спеш|срок/i);
+  assert.equal(result.hint.includes('секрет'), false);
+});
+
+test('an unsafe action explains the trick and lets the child retry without losing clues', () => {
+  let state = createTrapsState();
+  for (const clueId of ['prize', 'timer', 'secret-request']) {
+    state = updateTraps(state, { type: 'TOGGLE_CLUE', clueId });
+  }
+  state = updateTraps(state, { type: 'CHOOSE_ACTION', actionId: 'follow-request' });
+  state = updateTraps(state, { type: 'SUBMIT_TRAP' });
+
+  assert.equal(evaluateTrapCase(state).complete, false);
+  assert.match(evaluateTrapCase(state).actionFeedback, /данн|отправ/i);
+  assert.deepEqual(state.selectedClueIds, ['prize', 'timer', 'secret-request']);
+
+  state = updateTraps(state, { type: 'CHOOSE_ACTION', actionId: 'tell-adult' });
+  assert.equal(state.submitted, false);
+  assert.deepEqual(state.selectedClueIds, ['prize', 'timer', 'secret-request']);
+  assert.equal(evaluateTrapCase(state).complete, true);
+});
+
+test('final case accepts every safe branch and third next prepares the reward', () => {
+  for (const actionId of ['tell-adult', 'verify-another-way', 'block-contact']) {
+    let state = { ...createTrapsState(), caseIndex: 2, solvedCaseIds: ['prize-message', 'screen-code'] };
+    for (const clueId of ['unusual-style', 'unexpected-link', 'password-request']) {
+      state = updateTraps(state, { type: 'TOGGLE_CLUE', clueId });
+    }
+    state = updateTraps(state, { type: 'CHOOSE_ACTION', actionId });
+    assert.equal(evaluateTrapCase(state).complete, true, `${actionId} should be safe`);
+
+    state = updateTraps(state, { type: 'NEXT_TRAP_CASE' });
+    assert.equal(state.readyForReward, true);
+    assert.deepEqual(state.solvedCaseIds, ['prize-message', 'screen-code', 'friend-link']);
+  }
+});
+
+test('trap state stores allow-listed decisions only and rendered messages stay literal', () => {
+  let state = updateTraps(createTrapsState(), {
+    type: 'TOGGLE_CLUE', clueId: 'private-address', freeText: 'do not store',
+  });
+  state = updateTraps(state, {
+    type: 'CHOOSE_ACTION', actionId: 'custom-reply', text: 'do not store',
+  });
+  assert.deepEqual(state, createTrapsState());
+
+  const html = renderTraps(state);
+  assert.match(html, /выиграл/i);
+  assert.match(html, /Всё сообщение вымышлено/i);
+  assert.doesNotMatch(html, /<input|<textarea|href=/i);
 });
