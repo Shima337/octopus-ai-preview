@@ -31,6 +31,27 @@ test('neutral details do not count and a partial answer gets one category hint',
   assert.match(result.hint, /место|школ/i);
 });
 
+test('unsafe caption gets one place hint and remains recoverable', () => {
+  let state = createMirrorState();
+  for (const detailId of ['school-sign', 'geotag', 'pass-card', 'house-number']) {
+    state = updateMirror(state, { type: 'TOGGLE_DETAIL', detailId });
+  }
+  state = updateMirror(state, { type: 'CHOOSE_CAPTION', captionId: 'after-school' });
+  state = updateMirror(state, { type: 'SUBMIT_MIRROR' });
+
+  assert.deepEqual(evaluateMirror(state), {
+    complete: false,
+    found: 4,
+    missed: [],
+    safeCaption: false,
+    hint: 'Проверь, не выдаёт ли подпись место съёмки.',
+  });
+
+  state = updateMirror(state, { type: 'CHOOSE_CAPTION', captionId: 'cat-day' });
+  assert.equal(state.submitted, false);
+  assert.equal(evaluateMirror(state).complete, true);
+});
+
 test('mirror state keeps only allow-listed choices and submission status', () => {
   const initial = createMirrorState();
   const unknownDetail = updateMirror(initial, {

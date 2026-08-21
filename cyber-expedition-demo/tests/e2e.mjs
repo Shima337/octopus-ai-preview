@@ -61,7 +61,16 @@ async function exerciseChildMode(viewport) {
     for (const detailId of ['school-sign', 'geotag', 'pass-card', 'house-number']) {
       await page.locator(`[data-mirror-detail="${detailId}"]`).click();
     }
+    await page.locator('[data-mirror-caption="after-school"]').click();
+    await page.locator('[data-action="SUBMIT_MIRROR"]').click();
+    assert.equal(await page.locator('[data-mirror-hint]').count(), 1);
+    assert.equal(
+      await page.locator('[data-mirror-hint] p').innerText(),
+      'Почти! Проверь, не выдаёт ли подпись место съёмки.',
+    );
     await page.locator('[data-mirror-caption="cat-day"]').click();
+    assert.equal(await page.locator('[data-mirror-caption="cat-day"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('[data-mirror-hint]').count(), 0);
     await page.locator('[data-action="SUBMIT_MIRROR"]').click();
 
     await assertPageFrame(page, viewport, 'reward');
