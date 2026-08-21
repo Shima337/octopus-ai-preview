@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -32,4 +32,13 @@ it('removes draft legal documents from the public preview artifact', () => {
   for (const legalPage of ['privacy.html', 'offer.html', 'legal.html']) {
     expect(existsSync(join(root, legalPage))).toBe(false);
   }
+});
+
+it('builds the Pages artifact for a custom domain at the site root', () => {
+  const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'));
+  const command = packageJson.scripts['build:pages-preview'];
+
+  expect(command).toContain('vite build --base=/');
+  expect(command).toContain('audit-dist.mjs --draft --base=/');
+  expect(command).not.toContain('/octopus-ai-preview/');
 });
