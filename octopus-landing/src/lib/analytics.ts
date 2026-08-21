@@ -9,6 +9,7 @@ declare global {
   interface Window {
     dataLayer?: { push(event: AnalyticsEvent): unknown };
     fbq?: (...args: unknown[]) => void;
+    ttq?: { track(event: string, properties?: Record<string, string>): void };
   }
 }
 
@@ -17,9 +18,12 @@ export function track(event: AnalyticsEvent): void {
   window.dataLayer?.push(event);
 
   if (event.name === 'telegram_cta_click') {
-    window.fbq?.('track', 'Lead', {
+    const properties = {
       content_name: event.name,
       button_location: event.placement,
-    });
+    };
+
+    window.fbq?.('track', 'Lead', properties);
+    window.ttq?.track('Lead', properties);
   }
 }

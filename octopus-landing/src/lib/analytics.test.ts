@@ -4,6 +4,7 @@ import { track } from './analytics';
 afterEach(() => {
   delete window.dataLayer;
   delete window.fbq;
+  delete window.ttq;
 });
 
 it('publishes analytics events to the browser event stream and optional data layer', () => {
@@ -37,4 +38,23 @@ it('does not report non-conversion interactions as Meta leads', () => {
   track({ name: 'faq_open', id: 'games' });
 
   expect(window.fbq).not.toHaveBeenCalled();
+});
+
+it('reports Telegram CTA clicks to TikTok as Lead events with their placement', () => {
+  window.ttq = { track: vi.fn() };
+
+  track({ name: 'telegram_cta_click', placement: 'games' });
+
+  expect(window.ttq.track).toHaveBeenCalledWith('Lead', {
+    content_name: 'telegram_cta_click',
+    button_location: 'games',
+  });
+});
+
+it('does not report non-conversion interactions as TikTok leads', () => {
+  window.ttq = { track: vi.fn() };
+
+  track({ name: 'review_open', id: 'review-01' });
+
+  expect(window.ttq.track).not.toHaveBeenCalled();
 });

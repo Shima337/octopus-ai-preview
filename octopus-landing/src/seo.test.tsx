@@ -21,5 +21,7 @@ it('contains search and social metadata', () => {
   expect(html).toContain("fbq('init', '1364883674605100')");
   expect(html).toContain("fbq('track', 'PageView')");
   expect(html).toContain('tr?id=1364883674605100&ev=PageView&noscript=1');
+  expect(html).toContain("ttq.load('DA45MPJC77UBCVGKTAKG')");
+  expect(html).toContain('ttq.page()');
   expect(hero).toContain("assetPath('/media/lyudmila.webp')");
 });
