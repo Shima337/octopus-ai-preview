@@ -1,4 +1,5 @@
 import { DISTRICTS, SHIELD_PARTS, VIDEOS } from './content.js';
+import { createLocksState, evaluateLocks, renderLocks, updateLocks } from './chapters/locks.js';
 import { createMirrorState, evaluateMirror, renderMirror, updateMirror } from './chapters/mirror.js';
 import { transition } from './lesson-state.js';
 import { loadLesson, saveLesson } from './storage.js';
@@ -7,6 +8,7 @@ import { renderShell } from './ui.js';
 const app = document.querySelector('#app');
 const content = { districts: DISTRICTS, shieldParts: SHIELD_PARTS, videos: VIDEOS };
 let state = loadLesson();
+let locksState = createLocksState();
 let mirrorState = createMirrorState();
 
 export function eventFromControl(control) {
@@ -18,6 +20,9 @@ export function eventFromControl(control) {
   if (action === 'JUMP_TO_PREVIEW') return { type: 'JUMP_TO_PREVIEW', stage: control.dataset.previewStage };
   if (action === 'TOGGLE_MIRROR_DETAIL') return { type: 'TOGGLE_DETAIL', detailId: control.dataset.mirrorDetail };
   if (action === 'CHOOSE_MIRROR_CAPTION') return { type: 'CHOOSE_CAPTION', captionId: control.dataset.mirrorCaption };
+  if (action === 'CLASSIFY_PASSWORD_CARD') return { type: action, cardId: control.dataset.passwordCard };
+  if (action === 'ADD_PHRASE_CARD') return { type: action, cardId: control.dataset.phraseCard };
+  if (action === 'SELECT_2FA_STEP') return { type: action, stepId: control.dataset['2faStep'] };
   if (action === 'CLAIM_REWARD') return { type: 'RETURN_TO_MAP' };
   return action ? { type: action } : null;
 }
@@ -27,6 +32,8 @@ function dispatch(event) {
   const previousScreen = state.screen;
   state = transition(state, event);
   if (state.screen === 'mirror' && previousScreen !== 'mirror') mirrorState = createMirrorState();
+  if (state.screen === 'locks' && previousScreen !== 'locks') locksState = createLocksState();
+  if (previousScreen === 'locks' && state.screen !== 'locks') locksState = createLocksState();
   saveLesson(state);
   render();
 }
@@ -40,13 +47,26 @@ function dispatchMirror(event) {
   render();
 }
 
+function dispatchLocks(event) {
+  locksState = updateLocks(locksState, event);
+  if (evaluateLocks(locksState).complete) {
+    dispatch({ type: 'COMPLETE_CHAPTER', districtId: 'locks' });
+    return;
+  }
+  render();
+}
+
 function render() {
   if (!app) return;
   app.innerHTML = renderShell(state, content);
   const screen = app.querySelector('#main-content > [data-screen]');
   if (state.screen === 'mirror') screen?.replaceWith(fragment(renderMirror(mirrorState)));
+  if (state.screen === 'locks') screen?.replaceWith(fragment(renderLocks(locksState)));
   if (state.screen === 'reward' && state.activeDistrict === 'mirror') {
     screen?.replaceWith(fragment(renderMirrorReward()));
+  }
+  if (state.screen === 'reward' && state.activeDistrict === 'locks') {
+    screen?.replaceWith(fragment(renderLocksReward()));
   }
 }
 
@@ -56,6 +76,10 @@ app?.addEventListener('click', (event) => {
   const nextEvent = eventFromControl(control);
   if (state.screen === 'mirror' && ['TOGGLE_DETAIL', 'CHOOSE_CAPTION', 'SUBMIT_MIRROR'].includes(nextEvent?.type)) {
     dispatchMirror(nextEvent);
+    return;
+  }
+  if (state.screen === 'locks' && ['CLASSIFY_PASSWORD_CARD', 'ADD_PHRASE_CARD', 'SELECT_2FA_STEP'].includes(nextEvent?.type)) {
+    dispatchLocks(nextEvent);
     return;
   }
   dispatch(nextEvent);
@@ -102,6 +126,24 @@ function renderMirrorReward() {
 
       <div class="mirror-reward__claim">
         <div class="shield-part" data-reward-part><span aria-hidden="true">🧩</span><p>Часть щита<br><strong>«Личные данные»</strong></p></div>
+        <button class="button button--primary" type="button" data-action="CLAIM_REWARD">Забрать деталь и вернуться на карту <span aria-hidden="true">→</span></button>
+      </div>
+    </section>`;
+}
+
+function renderLocksReward() {
+  return `
+    <section class="locks-reward" data-screen="reward">
+      <div class="locks-reward__badge" aria-hidden="true">🏰 🔐</div>
+      <p class="eyebrow">Задание выполнено!</p>
+      <h1>Замок секретов защищён</h1>
+      <p class="lead">Длинная непредсказуемая фраза и второй замок работают вместе. Пароли и коды подтверждения всегда остаются секретом.</p>
+      <div class="locks-reward__rule">
+        <span aria-hidden="true">🤫</span>
+        <p><strong>Никому не пересылай пароль или код.</strong><br>Даже если об этом просит знакомый.</p>
+      </div>
+      <div class="locks-reward__claim">
+        <div class="shield-part" data-reward-part="secret"><span aria-hidden="true">🧩</span><p>Часть щита<br><strong>«Секретный ключ»</strong></p></div>
         <button class="button button--primary" type="button" data-action="CLAIM_REWARD">Забрать деталь и вернуться на карту <span aria-hidden="true">→</span></button>
       </div>
     </section>`;

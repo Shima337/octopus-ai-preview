@@ -81,6 +81,42 @@ async function exerciseChildMode(viewport) {
 
     await assertPageFrame(page, viewport, 'map');
     assert.equal(await page.locator('[data-district-id="locks"]:not([disabled])').count(), 1);
+
+    await page.locator('[data-district-id="locks"]').click();
+    await assertPageFrame(page, viewport, 'locks-video');
+    await page.locator('[data-action="SKIP_MEDIA"]').click();
+    await assertPageFrame(page, viewport, 'locks');
+    assert.equal(await page.locator('input, textarea').count(), 0);
+    assert.equal(await page.locator('[data-password-card]:visible').count(), 3);
+
+    await page.locator('[data-password-card="digits"]').click();
+    assert.match(await page.locator('[data-password-card="digits"]').innerText(), /легко угадать/i);
+    await page.locator('[data-password-card="hero-name"]').click();
+    assert.match(await page.locator('[data-password-card="hero-name"]').innerText(), /могут знать друзья/i);
+    await page.locator('[data-password-card="long-random-phrase"]').click();
+
+    for (const cardId of ['rocket', 'forest']) {
+      await page.locator(`[data-phrase-card="${cardId}"]`).click();
+    }
+    assert.match(await page.locator('[data-phrase-progress]').innerText(), /2\s*из\s*3/i);
+    assert.equal(await page.locator('[data-screen="reward"]').count(), 0);
+    await page.locator('[data-phrase-card="teacup"]').click();
+    assert.match(await page.locator('[data-phrase-progress]').innerText(), /3\s*из\s*3/i);
+
+    await page.locator('[data-2fa-step="trusted-device"]').click();
+    assert.match(await page.locator('[data-2fa-hint]').innerText(), /ничего страшного|ещё раз/i);
+    assert.match(await page.locator('[data-phrase-progress]').innerText(), /3\s*из\s*3/i);
+    assert.equal(await page.locator('[data-password-card][aria-pressed="true"]').count(), 3);
+    for (const stepId of ['password', 'trusted-device', 'keep-code-secret']) {
+      await page.locator(`[data-2fa-step="${stepId}"]`).click();
+    }
+
+    await assertPageFrame(page, viewport, 'reward');
+    assert.match(await page.locator('[data-reward-part]').innerText(), /секретный ключ/i);
+    assert.equal(await page.locator('[data-reward-part]').getAttribute('data-reward-part'), 'secret');
+    await page.locator('[data-action="CLAIM_REWARD"]').click();
+    await assertPageFrame(page, viewport, 'map');
+    assert.equal(await page.locator('[data-district-id="traps"]:not([disabled])').count(), 1);
     assert.deepEqual(failures, []);
   } finally {
     await page.close();
@@ -108,6 +144,11 @@ async function exercisePreviewMode(viewport) {
     await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="map"]').click();
     await page.locator('[data-district-id="locks"]').click();
     await assertPageFrame(page, viewport, 'locks-video');
+    await page.locator('[data-action="SKIP_MEDIA"]').click();
+    await assertPageFrame(page, viewport, 'locks');
+    assert.equal(await page.locator('input[type="text"], input[type="password"], textarea').count(), 0);
+    await page.locator('[data-password-card="digits"]').click();
+    assert.match(await page.locator('[data-password-card="digits"]').innerText(), /легко угадать/i);
     await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="map"]').click();
     await page.locator('[data-district-id="messages"]').click();
     await assertPageFrame(page, viewport, 'messages-video');
