@@ -110,7 +110,7 @@ function completeChapter(state, districtId, chatChoices) {
     activeDistrict: districtId,
     completedDistricts,
     chatChoices: districtId === 'messages' ? normalizeChatChoiceRefs(chatChoices) : state.chatChoices,
-    ...derivedProgress(completedDistricts),
+    ...derivedProgress(completedDistricts, state.mode),
   };
 }
 
@@ -119,10 +119,12 @@ function orderedCompleted(ids) {
   return DISTRICT_IDS.filter((id) => requested.has(id));
 }
 
-function derivedProgress(completedDistricts) {
+function derivedProgress(completedDistricts, mode) {
   const completed = orderedCompleted(completedDistricts);
   return {
-    unlockedDistricts: DISTRICT_IDS.slice(0, Math.min(completed.length + 1, DISTRICT_IDS.length)),
+    unlockedDistricts: mode === 'preview'
+      ? [...DISTRICT_IDS]
+      : DISTRICT_IDS.slice(0, Math.min(completed.length + 1, DISTRICT_IDS.length)),
     shieldParts: completed.map((id) => DISTRICT_PARTS.get(id)),
   };
 }

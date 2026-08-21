@@ -32,6 +32,16 @@ test('finishing a chapter awards one part and unlocks the next district', () => 
   assert.equal(state.screen, 'reward');
 });
 
+test('finishing a preview chapter keeps every district unlocked through the reward return', () => {
+  let state = transition(stateForPreview('mirror'), { type: 'SKIP_MEDIA' });
+  state = transition(state, { type: 'COMPLETE_CHAPTER', districtId: 'mirror' });
+  assert.deepEqual(state.unlockedDistricts, ['mirror', 'locks', 'traps', 'messages']);
+
+  state = transition(state, { type: 'RETURN_TO_MAP' });
+  assert.equal(state.screen, 'map');
+  assert.deepEqual(state.unlockedDistricts, ['mirror', 'locks', 'traps', 'messages']);
+});
+
 test('route events are ignored outside their active screen and preview jumps require preview mode', () => {
   const initial = createInitialState();
   assert.equal(transition(initial, { type: 'OPEN_DISTRICT', districtId: 'mirror' }), initial);

@@ -8,7 +8,11 @@ const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.mp3': 'audio/mpeg',
+  '.mp4': 'video/mp4',
   '.svg': 'image/svg+xml',
+  '.vtt': 'text/vtt; charset=utf-8',
+  '.webp': 'image/webp',
 };
 
 export function createLessonServer({ rootDir } = {}) {

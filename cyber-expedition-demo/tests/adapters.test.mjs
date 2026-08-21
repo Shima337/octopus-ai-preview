@@ -117,6 +117,18 @@ test('lesson storage restores all preview districts as open and interactive', ()
   );
 });
 
+test('lesson storage restores all preview unlocks after a non-final chapter reward return', () => {
+  let preview = transition(stateForPreview('mirror'), { type: 'SKIP_MEDIA' });
+  preview = transition(preview, { type: 'COMPLETE_CHAPTER', districtId: 'mirror' });
+  preview = transition(preview, { type: 'RETURN_TO_MAP' });
+
+  const storage = createMemoryStorage();
+  assert.equal(saveLesson(preview, storage), true);
+  const restored = loadLesson(storage);
+  assert.equal(restored.screen, 'map');
+  assert.deepEqual(restored.unlockedDistricts, ['mirror', 'locks', 'traps', 'messages']);
+});
+
 test('lesson storage preserves the messages media stage', () => {
   const storage = createMemoryStorage();
   const mediaState = {

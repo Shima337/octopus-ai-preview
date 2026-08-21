@@ -21,9 +21,11 @@ try {
   }
 
   await exerciseLocksKeyboardOnly();
+  await exerciseMirrorKeyboardAndPreviewPersistence();
   await exerciseTrapsKeyboardOnly();
   await exerciseChatKeyboardOnly();
   await verifyConfiguredMessageVideo();
+  await verifyConfiguredIntroAudio();
 } finally {
   await browser.close();
   await new Promise((resolve) => server.close(resolve));
@@ -320,6 +322,59 @@ async function exerciseLocksKeyboardOnly() {
   }
 }
 
+async function exerciseMirrorKeyboardAndPreviewPersistence() {
+  const viewport = { width: 1280, height: 800 };
+  const { page, failures } = await monitoredPage(viewport);
+  try {
+    await page.goto(baseUrl);
+    await page.locator('[data-action="CHOOSE_PREVIEW_MODE"]').focus();
+    await page.keyboard.press('Enter');
+    await page.locator('[data-district-id="mirror"]').focus();
+    await page.keyboard.press('Space');
+    await page.locator('[data-action="SKIP_MEDIA"]').focus();
+    await page.keyboard.press('Enter');
+    await assertPageFrame(page, viewport, 'mirror');
+
+    await page.locator('[data-mirror-detail="school-sign"]').focus();
+    await page.keyboard.press('Space');
+    assert.equal(await page.locator('[data-mirror-detail="school-sign"]:focus').count(), 1);
+
+    const unsafeCaption = page.locator('[data-mirror-caption="after-school"]');
+    await unsafeCaption.focus();
+    assert.ok(await focusContrastAgainstWhite(unsafeCaption) >= 3);
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('[data-mirror-caption="after-school"]:focus').count(), 1);
+
+    await page.locator('[data-action="SUBMIT_MIRROR"]').focus();
+    await page.keyboard.press('Space');
+    assert.equal(await page.locator('[data-mirror-hint]').count(), 1);
+    assert.equal(await page.locator('[data-action="SUBMIT_MIRROR"]:focus').count(), 1);
+
+    for (const detailId of ['geotag', 'pass-card', 'house-number']) {
+      await page.locator(`[data-mirror-detail="${detailId}"]`).focus();
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator(`[data-mirror-detail="${detailId}"]:focus`).count(), 1);
+    }
+    await page.locator('[data-mirror-caption="cat-day"]').focus();
+    await page.keyboard.press('Space');
+    assert.equal(await page.locator('[data-mirror-caption="cat-day"]:focus').count(), 1);
+    await page.locator('[data-action="SUBMIT_MIRROR"]').focus();
+    await page.keyboard.press('Enter');
+
+    await assertPageFrame(page, viewport, 'reward');
+    assert.equal(await page.locator('[data-action="CLAIM_REWARD"]:focus').count(), 1);
+    await page.keyboard.press('Enter');
+    await assertPageFrame(page, viewport, 'map');
+    assert.equal(await page.locator('[data-district-id]:not([disabled])').count(), 4);
+    await page.reload();
+    await assertPageFrame(page, viewport, 'map');
+    assert.equal(await page.locator('[data-district-id]:not([disabled])').count(), 4);
+    assert.deepEqual(failures, []);
+  } finally {
+    await page.close();
+  }
+}
+
 async function assertLocksFocus(page, datasetKey, expectedId) {
   assert.equal(await page.locator('[data-screen="locks"] :focus').count(), 1);
   assert.equal(
@@ -444,6 +499,40 @@ async function verifyConfiguredMessageVideo() {
   } finally {
     await page.close();
   }
+}
+
+async function verifyConfiguredIntroAudio() {
+  const viewport = { width: 1280, height: 800 };
+  const { page, failures } = await monitoredPage(viewport);
+  try {
+    await page.goto(baseUrl);
+    await page.evaluate(async () => {
+      const { VIDEOS } = await import('/src/content.js');
+      VIDEOS.find((video) => video.id === 'city-intro').audio = '/tests/fixtures/sample.mp3';
+    });
+    await page.locator('[data-action="CHOOSE_CHILD_MODE"]').click();
+    await assertPageFrame(page, viewport, 'intro-video');
+    const audio = page.locator('audio');
+    assert.equal(await audio.count(), 1);
+    assert.notEqual(await audio.getAttribute('controls'), null);
+    assert.equal(await audio.getAttribute('autoplay'), null);
+    assert.equal(await audio.getAttribute('src'), '/tests/fixtures/sample.mp3');
+    assert.equal(await page.locator('[data-media-mode="placeholder"]').count(), 0);
+    assert.deepEqual(failures, []);
+  } finally {
+    await page.close();
+  }
+}
+
+async function focusContrastAgainstWhite(locator) {
+  return locator.evaluate((node) => {
+    const channels = getComputedStyle(node).outlineColor.match(/\d+(?:\.\d+)?/g).slice(0, 3).map(Number);
+    const luminance = channels
+      .map((channel) => channel / 255)
+      .map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+      .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+    return 1.05 / (luminance + 0.05);
+  });
 }
 
 async function monitoredPage(viewport) {

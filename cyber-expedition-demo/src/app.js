@@ -58,9 +58,11 @@ function dispatchMirror(event) {
   mirrorState = updateMirror(mirrorState, event);
   if (event.type === 'SUBMIT_MIRROR' && evaluateMirror(mirrorState).complete) {
     dispatch({ type: 'COMPLETE_CHAPTER', districtId: 'mirror' });
+    app?.querySelector('[data-action="CLAIM_REWARD"]')?.focus();
     return;
   }
   render();
+  restoreMirrorFocus(event);
 }
 
 function dispatchLocks(event) {
@@ -120,6 +122,22 @@ function restoreLocksFocus(event) {
   }
   if (event.type === 'SELECT_2FA_STEP') {
     control = app.querySelector('[data-2fa-step]:not([disabled])');
+  }
+  control?.focus();
+}
+
+function restoreMirrorFocus(event) {
+  let control = null;
+  if (event.type === 'TOGGLE_DETAIL') {
+    control = [...app.querySelectorAll('[data-mirror-detail]')]
+      .find((item) => item.dataset.mirrorDetail === event.detailId);
+  }
+  if (event.type === 'CHOOSE_CAPTION') {
+    control = [...app.querySelectorAll('[data-mirror-caption]')]
+      .find((item) => item.dataset.mirrorCaption === event.captionId);
+  }
+  if (event.type === 'SUBMIT_MIRROR') {
+    control = app.querySelector('[data-action="SUBMIT_MIRROR"]');
   }
   control?.focus();
 }

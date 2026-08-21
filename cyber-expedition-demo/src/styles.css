@@ -41,7 +41,7 @@ button { color: inherit; }
 
 button:focus-visible,
 a:focus-visible {
-  outline: 4px solid #ffd85f;
+  outline: 4px solid #b83b00;
   outline-offset: 4px;
 }
 
@@ -422,6 +422,11 @@ h1 {
 }
 
 .media-player { aspect-ratio: 16 / 9; }
+
+.media-audio {
+  width: min(100%, 680px);
+  margin-top: 34px;
+}
 
 .media-placeholder {
   position: relative;

@@ -112,6 +112,19 @@ export function renderMediaSlot(state, video) {
       </section>`;
   }
 
+  if (media.mode === 'audio') {
+    return `
+      <section class="media-screen" data-screen="${escapeHtml(state.screen)}">
+        <p class="eyebrow">Аудиоверсия истории</p>
+        <h1>${escapeHtml(heading)}</h1>
+        <audio class="media-audio" data-media-mode="audio" controls preload="metadata"
+          src="${escapeHtml(media.audio)}" aria-label="Аудиоверсия: ${escapeHtml(heading)}">
+          Браузер не умеет воспроизводить аудио.
+        </audio>
+        ${renderSkipButton()}
+      </section>`;
+  }
+
   return `
     <section class="media-screen" data-screen="${escapeHtml(state.screen)}">
       <p class="eyebrow">Перед стартом</p>

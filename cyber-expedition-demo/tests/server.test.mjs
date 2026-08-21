@@ -31,6 +31,26 @@ test('standalone server serves the shell without advertising external integratio
   }
 });
 
+test('standalone server advertises the configured local media MIME types', async () => {
+  const server = createLessonServer({ rootDir: process.cwd() });
+  const running = await listen(server);
+  try {
+    const expected = {
+      'sample.mp4': 'video/mp4',
+      'sample.webp': 'image/webp',
+      'sample.vtt': 'text/vtt; charset=utf-8',
+      'sample.mp3': 'audio/mpeg',
+    };
+    for (const [fileName, contentType] of Object.entries(expected)) {
+      const response = await fetch(`${running.baseUrl}/tests/fixtures/${fileName}`);
+      assert.equal(response.status, 200, fileName);
+      assert.equal(response.headers.get('content-type'), contentType, fileName);
+    }
+  } finally {
+    await running.close();
+  }
+});
+
 test('starts when the server module is executed directly', async () => {
   const { PORT: ignoredPort, ...childEnv } = process.env;
   const child = spawn(process.execPath, ['server/serve.mjs'], {
