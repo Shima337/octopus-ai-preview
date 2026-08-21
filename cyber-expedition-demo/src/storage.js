@@ -6,7 +6,7 @@ const DISTRICT_IDS = DISTRICTS.map((district) => district.id);
 const DISTRICT_PARTS = new Map(DISTRICTS.map((district) => [district.id, district.partId]));
 const SCREENS = new Set([
   'welcome', 'intro-video', 'map', 'mirror-video', 'mirror', 'locks-video', 'locks',
-  'traps-video', 'traps', 'chat', 'voice-prepare', 'voice-live', 'voice-result', 'reward', 'safety-card',
+  'traps-video', 'traps', 'messages-video', 'chat', 'voice-prepare', 'voice-live', 'voice-result', 'reward', 'safety-card',
 ]);
 const MODES = new Set([null, 'child', 'preview']);
 const VOICE_MODES = new Set([null, 'demo', 'realtime']);
@@ -53,7 +53,9 @@ function normalizeState(value) {
   state.completedDistricts = orderedCompleted(source.completedDistricts);
   state.card = normalizeCard(source.card);
 
-  state.unlockedDistricts = DISTRICT_IDS.slice(0, Math.min(state.completedDistricts.length + 1, DISTRICT_IDS.length));
+  state.unlockedDistricts = state.mode === 'preview'
+    ? [...DISTRICT_IDS]
+    : DISTRICT_IDS.slice(0, Math.min(state.completedDistricts.length + 1, DISTRICT_IDS.length));
   state.shieldParts = state.completedDistricts.map((id) => DISTRICT_PARTS.get(id));
   return state;
 }

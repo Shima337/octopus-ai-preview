@@ -71,3 +71,14 @@ test('card updates accept only known choices and preserve a maximum of three rul
     rules: ['pause', 'secret', 'adult'], adultRole: null, habit: 'check-photo',
   });
 });
+
+test('messages district opens its media stage before continuing to chat', () => {
+  const map = stateForPreview('map');
+  const media = transition(map, { type: 'OPEN_DISTRICT', districtId: 'messages' });
+  assert.equal(media.screen, 'messages-video');
+  assert.equal(media.activeDistrict, 'messages');
+
+  const chat = transition(media, { type: 'SKIP_MEDIA' });
+  assert.equal(chat.screen, 'chat');
+  assert.equal(chat.activeDistrict, 'messages');
+});

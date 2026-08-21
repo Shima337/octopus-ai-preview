@@ -18,6 +18,7 @@ const SCREEN_TITLES = {
   locks: 'Замок секретов',
   'traps-video': 'Ярмарка ловушек',
   traps: 'Ярмарка ловушек',
+  'messages-video': 'Станция общения',
   chat: 'Станция общения',
   'voice-prepare': 'Голосовая тренировка',
   'voice-live': 'Голосовая тренировка',
@@ -150,6 +151,7 @@ function videoForScreen(screen, videos) {
     'mirror-video': 'mirror-post',
     'locks-video': 'secret-locks',
     'traps-video': 'trick-market',
+    'messages-video': 'message-station',
   };
   return videos.find((video) => video.id === ids[screen]) ?? null;
 }

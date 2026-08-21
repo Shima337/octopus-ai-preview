@@ -20,7 +20,7 @@ try {
     await exercisePreviewMode(viewport);
   }
 
-  await verifyConfiguredVideo();
+  await verifyConfiguredMessageVideo();
 } finally {
   await browser.close();
   await new Promise((resolve) => server.close(resolve));
@@ -58,10 +58,20 @@ async function exercisePreviewMode(viewport) {
     await previewButton.focus();
     await page.keyboard.press('Space');
     await assertPageFrame(page, viewport, 'map');
+    await page.reload();
+    await assertPageFrame(page, viewport, 'map');
 
     const previewControls = page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage]');
     assert.equal(await previewControls.count(), 8);
-    assert.equal(await page.locator('[data-district-id="locks"]:not([disabled])').count(), 1);
+    assert.equal(await page.locator('[data-district-id]:not([disabled])').count(), 4);
+    await page.locator('[data-district-id="locks"]').click();
+    await assertPageFrame(page, viewport, 'locks-video');
+    await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="map"]').click();
+    await page.locator('[data-district-id="messages"]').click();
+    await assertPageFrame(page, viewport, 'messages-video');
+    assert.equal(await page.locator('[data-media-mode="placeholder"]').count(), 1);
+    await page.locator('[data-action="SKIP_MEDIA"]').click();
+    await assertPageFrame(page, viewport, 'chat');
     await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="voice"]').click();
     await assertPageFrame(page, viewport, 'voice-prepare');
     assert.deepEqual(failures, []);
@@ -70,27 +80,26 @@ async function exercisePreviewMode(viewport) {
   }
 }
 
-async function verifyConfiguredVideo() {
+async function verifyConfiguredMessageVideo() {
   const { page, failures } = await monitoredPage({ width: 1280, height: 800 });
   try {
     await page.goto(baseUrl);
     await page.evaluate(async () => {
-      const { renderMediaSlot } = await import('/src/ui.js');
-      document.querySelector('#app').innerHTML = renderMediaSlot(
-        { screen: 'intro-video' },
-        {
-          source: 'data:video/mp4;base64,',
-          poster: null,
-          captions: 'data:text/vtt,WEBVTT',
-          audio: null,
-        },
-      );
+      const { VIDEOS } = await import('/src/content.js');
+      const messageVideo = VIDEOS.find((video) => video.id === 'message-station');
+      messageVideo.source = 'data:video/mp4;base64,';
+      messageVideo.captions = 'data:text/vtt,WEBVTT';
     });
+    await page.locator('[data-action="CHOOSE_PREVIEW_MODE"]').click();
+    await page.locator('[data-district-id="messages"]').click();
+    await assertPageFrame(page, { width: 1280, height: 800 }, 'messages-video');
     const video = page.locator('video');
     assert.equal(await video.count(), 1);
     assert.equal(await video.getAttribute('autoplay'), null);
     assert.equal(await video.locator('track[kind="captions"][srclang="ru"]').count(), 1);
     assert.equal(await video.locator('track').getAttribute('label'), 'Русские субтитры');
+    await page.locator('[data-action="SKIP_MEDIA"]').click();
+    await assertPageFrame(page, { width: 1280, height: 800 }, 'chat');
     assert.deepEqual(failures, []);
   } finally {
     await page.close();

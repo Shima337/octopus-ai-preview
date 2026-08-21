@@ -10,7 +10,7 @@ const DISTRICT_SCREENS = {
   mirror: { video: 'mirror-video', chapter: 'mirror' },
   locks: { video: 'locks-video', chapter: 'locks' },
   traps: { video: 'traps-video', chapter: 'traps' },
-  messages: { video: 'chat', chapter: 'chat' },
+  messages: { video: 'messages-video', chapter: 'chat' },
 };
 
 const PREVIEW_STAGES = {
@@ -114,7 +114,7 @@ function skipMedia(state) {
     return { ...state, screen: 'map', unlockedDistricts: ['mirror'] };
   }
   for (const [districtId, screens] of Object.entries(DISTRICT_SCREENS)) {
-    if (state.screen === screens.video && districtId !== 'messages') {
+    if (state.screen === screens.video) {
       return { ...state, screen: screens.chapter, activeDistrict: districtId };
     }
   }

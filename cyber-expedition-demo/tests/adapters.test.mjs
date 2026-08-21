@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getMediaModel } from '../src/media.js';
-import { createInitialState } from '../src/lesson-state.js';
+import { createInitialState, transition } from '../src/lesson-state.js';
 import { loadLesson, resetLesson, saveLesson } from '../src/storage.js';
 
 function createMemoryStorage(initial = {}) {
@@ -82,4 +82,38 @@ test('lesson storage saves and resets persisted progress', () => {
   assert.equal(loadLesson(storage).screen, 'map');
   assert.equal(resetLesson(storage), true);
   assert.deepEqual(loadLesson(storage), createInitialState());
+});
+
+test('lesson storage restores all preview districts as open and interactive', () => {
+  const storage = createMemoryStorage();
+  const preview = {
+    ...createInitialState(),
+    mode: 'preview',
+    screen: 'map',
+    unlockedDistricts: ['mirror', 'locks', 'traps', 'messages'],
+  };
+
+  assert.equal(saveLesson(preview, storage), true);
+  const restored = loadLesson(storage);
+  assert.deepEqual(restored.unlockedDistricts, ['mirror', 'locks', 'traps', 'messages']);
+  assert.equal(
+    transition(restored, { type: 'OPEN_DISTRICT', districtId: 'locks' }).screen,
+    'locks-video',
+  );
+});
+
+test('lesson storage preserves the messages media stage', () => {
+  const storage = createMemoryStorage();
+  const mediaState = {
+    ...createInitialState(),
+    mode: 'preview',
+    screen: 'messages-video',
+    activeDistrict: 'messages',
+    unlockedDistricts: ['mirror', 'locks', 'traps', 'messages'],
+  };
+
+  assert.equal(saveLesson(mediaState, storage), true);
+  const restored = loadLesson(storage);
+  assert.equal(restored.screen, 'messages-video');
+  assert.equal(restored.activeDistrict, 'messages');
 });
