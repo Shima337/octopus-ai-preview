@@ -74,6 +74,8 @@ function serveStatic(filePath, method, response) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const server = createLessonServer({ rootDir: process.cwd(), env: process.env });
-  const port = Number(process.env.PORT) || 3000;
-  server.listen(port, () => console.log(`Cyber expedition demo: http://localhost:${port}`));
+  const port = Number(process.env.PORT) || 4177;
+  server.listen(port, '127.0.0.1', () => {
+    console.log(`Cyber expedition demo: http://127.0.0.1:${port}/`);
+  });
 }

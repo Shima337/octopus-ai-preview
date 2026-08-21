@@ -35,9 +35,10 @@ test('standalone server serves the shell and reports demo mode', async () => {
 });
 
 test('starts when the server module is executed directly', async () => {
+  const { PORT: ignoredPort, ...childEnv } = process.env;
   const child = spawn(process.execPath, ['server/serve.mjs'], {
     cwd: process.cwd(),
-    env: { ...process.env, PORT: '0' },
+    env: childEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const started = new Promise((resolve, reject) => {
@@ -47,7 +48,11 @@ test('starts when the server module is executed directly', async () => {
   });
 
   try {
-    assert.match((await started).toString(), /Cyber expedition demo/);
+    assert.equal(
+      (await started).toString().trim(),
+      'Cyber expedition demo: http://127.0.0.1:4177/',
+    );
+    assert.equal((await fetch('http://127.0.0.1:4177/api/health')).status, 200);
   } finally {
     if (child.exitCode === null) {
       child.kill();
