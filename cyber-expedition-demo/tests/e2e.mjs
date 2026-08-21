@@ -130,9 +130,12 @@ async function exerciseChildMode(viewport) {
     assert.equal(await page.locator('[data-screen="traps"] a[href], [data-screen="traps"] input, [data-screen="traps"] textarea').count(), 0);
 
     await page.locator('[data-trap-clue="prize"]').click();
+    await page.locator('[data-trap-action="follow-request"]').click();
     await page.locator('[data-action="SUBMIT_TRAP"]').click();
     assert.match(await page.locator('[data-trap-hint]').innerText(), /спеш|срок/i);
+    assert.match(await page.locator('[data-trap-action-feedback]').innerText(), /данн|отправ/i);
     assert.match(await page.locator('[data-trap-found]').innerText(), /1\s*из\s*3/i);
+    assert.equal(await page.locator('[data-trap-clue="prize"]').getAttribute('aria-pressed'), 'true');
 
     for (const clueId of ['timer', 'secret-request']) {
       await page.locator(`[data-trap-clue="${clueId}"]`).click();
@@ -303,6 +306,15 @@ async function exerciseTrapsKeyboardOnly() {
     await page.keyboard.press('Enter');
     assert.equal(await page.locator('[data-trap-hint]').count(), 1);
     assert.equal(await page.locator('[data-action="SUBMIT_TRAP"]:focus').count(), 1);
+
+    await page.locator('[data-trap-action="follow-request"]').focus();
+    await page.keyboard.press('Space');
+    await page.locator('[data-action="SUBMIT_TRAP"]').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('[data-trap-hint]').count(), 1);
+    assert.equal(await page.locator('[data-trap-action-feedback]').count(), 1);
+    await assertTrapsFocus(page, 'trapAction', 'follow-request');
+    assert.equal(await page.locator('[data-trap-clue="prize"]').getAttribute('aria-pressed'), 'true');
 
     for (const clueId of ['timer', 'secret-request']) {
       await page.locator(`[data-trap-clue="${clueId}"]`).focus();

@@ -149,10 +149,11 @@ export function renderTraps(state) {
 
   let feedback = '';
   if (current.submitted && !result.complete && result.missed.length > 0) {
-    feedback = `<div class="traps-feedback traps-feedback--hint" data-trap-hint role="status"><span aria-hidden="true">💡</span><p><strong>Одна подсказка:</strong> ${result.hint}</p></div>`;
-  } else if (current.submitted && result.actionFeedback) {
-    feedback = `<div class="traps-feedback traps-feedback--retry" data-trap-action-feedback role="status"><span aria-hidden="true">🛡️</span><p><strong>Спокойно, можно попробовать ещё раз.</strong> ${result.actionFeedback}</p></div>`;
-  } else if (current.submitted && result.hint) {
+    feedback += `<div class="traps-feedback traps-feedback--hint" data-trap-hint role="status"><span aria-hidden="true">💡</span><p><strong>Одна подсказка:</strong> ${result.hint}</p></div>`;
+  }
+  if (current.submitted && result.actionFeedback) {
+    feedback += `<div class="traps-feedback traps-feedback--retry" data-trap-action-feedback role="status"><span aria-hidden="true">🛡️</span><p><strong>Спокойно, можно попробовать ещё раз.</strong> ${result.actionFeedback}</p></div>`;
+  } else if (current.submitted && result.missed.length === 0 && result.hint) {
     feedback = `<div class="traps-feedback traps-feedback--hint" data-trap-hint role="status"><span aria-hidden="true">💡</span><p>${result.hint}</p></div>`;
   }
 

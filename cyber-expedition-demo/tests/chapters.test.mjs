@@ -174,6 +174,19 @@ test('an incomplete submission reveals exactly one clue-category hint', () => {
   assert.equal(result.hint.includes('секрет'), false);
 });
 
+test('an incomplete unsafe submission renders one category hint and the action explanation', () => {
+  let state = updateTraps(createTrapsState(), { type: 'TOGGLE_CLUE', clueId: 'prize' });
+  state = updateTraps(state, { type: 'CHOOSE_ACTION', actionId: 'follow-request' });
+  state = updateTraps(state, { type: 'SUBMIT_TRAP' });
+  const html = renderTraps(state);
+
+  assert.equal((html.match(/data-trap-hint/g) ?? []).length, 1);
+  assert.match(html, /спешить из-за короткого срока/i);
+  assert.equal((html.match(/data-trap-action-feedback/g) ?? []).length, 1);
+  assert.match(html, /не отправляй данные/i);
+  assert.deepEqual(state.selectedClueIds, ['prize']);
+});
+
 test('an unsafe action explains the trick and lets the child retry without losing clues', () => {
   let state = createTrapsState();
   for (const clueId of ['prize', 'timer', 'secret-request']) {
