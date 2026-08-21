@@ -51,6 +51,7 @@ function dispatch(event) {
   if (previousScreen === 'traps' && state.screen !== 'traps') trapsState = createTrapsState();
   saveLesson(state);
   render();
+  if (state.screen !== previousScreen || event.type === 'JUMP_TO_PREVIEW') focusScreenHeading();
 }
 
 function dispatchMirror(event) {
@@ -196,6 +197,12 @@ function fragment(html) {
   const template = document.createElement('template');
   template.innerHTML = html.trim();
   return template.content.firstElementChild;
+}
+
+function focusScreenHeading() {
+  const heading = app?.querySelector('h1');
+  heading?.setAttribute('tabindex', '-1');
+  heading?.focus();
 }
 
 function createChatState() {

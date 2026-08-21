@@ -10,7 +10,7 @@ async function listen(server) {
   return `http://127.0.0.1:${server.address().port}`;
 }
 
-const server = createLessonServer({ rootDir: process.cwd(), env: {} });
+const server = createLessonServer({ rootDir: process.cwd() });
 const baseUrl = await listen(server);
 const browser = await chromium.launch({ headless: true });
 
@@ -46,6 +46,7 @@ async function exerciseChildMode(viewport) {
     assert.equal(await page.locator('[data-district-id="mirror"]:not([disabled])').count(), 1);
     const lockedDistrict = page.locator('[data-district-id="locks"][disabled]');
     assert.equal(await lockedDistrict.count(), 1);
+    assert.match(await lockedDistrict.innerText(), /Сначала пройди предыдущий район/);
     assert.ok(Number(await lockedDistrict.evaluate((node) => getComputedStyle(node).opacity)) < 1);
 
     await page.locator('[data-district-id="mirror"]').click();
@@ -207,32 +208,25 @@ async function exercisePreviewMode(viewport) {
     await assertPageFrame(page, viewport, 'map');
 
     const previewControls = page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage]');
-    assert.equal(await previewControls.count(), 8);
+    assert.deepEqual(await previewControls.evaluateAll((nodes) => nodes.map((node) => node.dataset.previewStage)), [
+      'home', 'map', 'mirror', 'locks', 'traps', 'chat',
+    ]);
     assert.equal(await page.locator('[data-district-id]:not([disabled])').count(), 4);
-    await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="mirror"]').click();
-    await assertPageFrame(page, viewport, 'mirror-video');
+    await assertPreviewDestination(page, viewport, 'map', 'map');
+    await assertPreviewDestination(page, viewport, 'mirror', 'mirror-video');
     await page.locator('[data-action="SKIP_MEDIA"]').click();
     await assertPageFrame(page, viewport, 'mirror');
-    await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="map"]').click();
-    await page.locator('[data-district-id="locks"]').click();
-    await assertPageFrame(page, viewport, 'locks-video');
+    await assertPreviewDestination(page, viewport, 'locks', 'locks-video');
     await page.locator('[data-action="SKIP_MEDIA"]').click();
     await assertPageFrame(page, viewport, 'locks');
     assert.equal(await page.locator('input[type="text"], input[type="password"], textarea').count(), 0);
     await page.locator('[data-password-card="digits"]').click();
     assert.match(await page.locator('[data-password-card="digits"]').innerText(), /легко угадать/i);
-    await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="map"]').click();
-    await page.locator('[data-district-id="traps"]').click();
-    await assertPageFrame(page, viewport, 'traps-video');
+    await assertPreviewDestination(page, viewport, 'traps', 'traps-video');
     await page.locator('[data-action="SKIP_MEDIA"]').click();
     await assertPageFrame(page, viewport, 'traps');
     assert.equal(await page.locator('[data-trap-clue]:visible').count(), 3);
-    await page.locator('[data-action="JUMP_TO_PREVIEW"][data-preview-stage="map"]').click();
-    await page.locator('[data-district-id="messages"]').click();
-    await assertPageFrame(page, viewport, 'messages-video');
-    assert.equal(await page.locator('[data-media-mode="placeholder"]').count(), 1);
-    await page.locator('[data-action="SKIP_MEDIA"]').click();
-    await assertPageFrame(page, viewport, 'chat');
+    await assertPreviewDestination(page, viewport, 'chat', 'chat');
 
     await page.locator('[data-chat-reply="send-photo"]').click();
     assert.match(await page.locator('[data-chat-guidance]').innerText(), /не отправлено|исправить/i);
@@ -245,9 +239,25 @@ async function exercisePreviewMode(viewport) {
     assert.equal(await page.locator('[data-chat-skill][data-met="true"]').count(), 3);
     assert.equal(await page.locator('[data-reward-part="help"]').count(), 1);
     assert.match(await page.locator('.progress').innerText(), /4\/4/);
+    await assertPreviewDestination(page, viewport, 'map', 'map');
+    await assertPreviewDestination(page, viewport, 'home', 'welcome');
+    assert.equal(await page.locator('.preview-nav').count(), 0);
     assert.deepEqual(failures, []);
   } finally {
     await page.close();
+  }
+}
+
+async function assertPreviewDestination(page, viewport, stage, screen) {
+  const control = page.locator(`[data-action="JUMP_TO_PREVIEW"][data-preview-stage="${stage}"]`);
+  await control.click();
+  await assertPageFrame(page, viewport, screen);
+  assert.equal(await page.locator('h1:focus').count(), 1);
+  if (stage !== 'home') {
+    assert.equal(
+      await page.locator(`[data-preview-stage="${stage}"][aria-current="page"]`).count(),
+      1,
+    );
   }
 }
 

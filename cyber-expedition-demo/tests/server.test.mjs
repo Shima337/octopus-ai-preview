@@ -16,17 +16,14 @@ async function listen(server) {
   };
 }
 
-test('standalone server serves the shell and reports demo mode', async () => {
-  const server = createLessonServer({ rootDir: process.cwd(), env: {} });
+test('standalone server serves the shell without advertising external integrations', async () => {
+  const server = createLessonServer({ rootDir: process.cwd() });
   const running = await listen(server);
   try {
     const page = await fetch(`${running.baseUrl}/`);
     assert.equal(page.status, 200);
     assert.match(await page.text(), /Киберэкспедиция/);
-    assert.deepEqual(await (await fetch(`${running.baseUrl}/api/health`)).json(), {
-      ok: true,
-      realtime: 'demo',
-    });
+    assert.deepEqual(await (await fetch(`${running.baseUrl}/api/health`)).json(), { ok: true });
     const traversal = await fetch(`${running.baseUrl}/..%2F..%2Fetc%2Fpasswd`);
     assert.equal(traversal.status, 404);
   } finally {

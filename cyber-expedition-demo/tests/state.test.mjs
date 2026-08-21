@@ -13,21 +13,15 @@ test('child route unlocks districts sequentially', () => {
 test('reviewer can open every major activity with valid prerequisites', () => {
   const expected = {
     home: 'welcome', map: 'map', mirror: 'mirror-video', locks: 'locks-video',
-    traps: 'traps-video', chat: 'chat', voice: 'voice-prepare', card: 'safety-card',
+    traps: 'traps-video', chat: 'chat',
   };
   for (const [stage, screen] of Object.entries(expected)) {
     const state = stateForPreview(stage);
     assert.equal(state.screen, screen);
     assert.equal(state.mode, stage === 'home' ? null : 'preview');
   }
-});
-
-test('card preview seeds valid card selections for reviewer navigation', () => {
-  assert.deepEqual(stateForPreview('card').card, {
-    rules: ['pause', 'secret', 'adult'],
-    adultRole: 'teacher',
-    habit: 'check-photo',
-  });
+  assert.equal(stateForPreview('voice'), null);
+  assert.equal(stateForPreview('card'), null);
 });
 
 test('finishing a chapter awards one part and unlocks the next district', () => {
@@ -46,30 +40,9 @@ test('route events are ignored outside their active screen and preview jumps req
   assert.equal(transition(child, { type: 'JUMP_TO_PREVIEW', stage: 'card' }), child);
 
   const preview = transition(initial, { type: 'CHOOSE_MODE', mode: 'preview' });
-  const card = transition(preview, { type: 'JUMP_TO_PREVIEW', stage: 'card' });
-  assert.equal(card.screen, 'safety-card');
-  assert.equal(transition(card, { type: 'COMPLETE_CHAPTER', districtId: 'mirror' }), card);
-});
-
-test('voice completion unlocks the final card only from the voice result', () => {
-  let state = transition(stateForPreview('voice'), { type: 'OPEN_VOICE', mode: 'demo' });
-  assert.equal(state.screen, 'voice-live');
-  state = transition(state, { type: 'COMPLETE_VOICE', evaluation: { safe: true } });
-  assert.equal(state.screen, 'voice-result');
-  state = transition(state, { type: 'OPEN_CARD' });
-  assert.equal(state.screen, 'safety-card');
-  assert.deepEqual(state.shieldParts, ['privacy', 'secret', 'check', 'help']);
-});
-
-test('card updates accept only known choices and preserve a maximum of three rules', () => {
-  const state = stateForPreview('card');
-  const updated = transition(state, {
-    type: 'UPDATE_CARD',
-    card: { rules: ['pause', 'secret', 'unknown', 'adult'], adultRole: 'unknown', habit: 'check-photo' },
-  });
-  assert.deepEqual(updated.card, {
-    rules: ['pause', 'secret', 'adult'], adultRole: null, habit: 'check-photo',
-  });
+  for (const stage of ['voice', 'card']) {
+    assert.equal(transition(preview, { type: 'JUMP_TO_PREVIEW', stage }), preview);
+  }
 });
 
 test('messages district opens its media stage before continuing to chat', () => {

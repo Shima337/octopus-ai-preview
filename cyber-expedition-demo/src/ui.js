@@ -7,8 +7,6 @@ const PREVIEW_STAGES = [
   ['locks', 'Замки'],
   ['traps', 'Ловушки'],
   ['chat', 'Чат'],
-  ['voice', 'Голос'],
-  ['card', 'Карточка'],
 ];
 
 const SCREEN_TITLES = {
@@ -20,11 +18,7 @@ const SCREEN_TITLES = {
   traps: 'Ярмарка ловушек',
   'messages-video': 'Станция общения',
   chat: 'Станция общения',
-  'voice-prepare': 'Голосовая тренировка',
-  'voice-live': 'Голосовая тренировка',
-  'voice-result': 'Итог тренировки',
   reward: 'Деталь щита найдена!',
-  'safety-card': 'Моя карточка безопасности',
 };
 
 export function renderShell(state, content) {
@@ -76,7 +70,7 @@ export function renderMap(state, districts) {
   const cards = districts.map((district, index) => {
     const isUnlocked = state.unlockedDistricts.includes(district.id);
     const isComplete = state.completedDistricts.includes(district.id);
-    const status = isComplete ? 'Пройдено' : isUnlocked ? 'Можно входить' : 'Снача пройди предыдущий район';
+    const status = isComplete ? 'Пройдено' : isUnlocked ? 'Можно входить' : 'Сначала пройди предыдущий район';
     return `
       <li class="map-route__stop map-route__stop--${escapeHtml(district.theme)}">
         <button class="district-card${isUnlocked ? '' : ' district-card--locked'}${isComplete ? ' district-card--complete' : ''}"
@@ -170,8 +164,6 @@ function previewStageForScreen(screen) {
   if (screen.startsWith('locks')) return 'locks';
   if (screen.startsWith('traps')) return 'traps';
   if (screen === 'chat') return 'chat';
-  if (screen.startsWith('voice')) return 'voice';
-  if (screen === 'safety-card') return 'card';
   return null;
 }
 

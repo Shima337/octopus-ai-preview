@@ -11,14 +11,11 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
 };
 
-export function createLessonServer({ rootDir, env = {} } = {}) {
+export function createLessonServer({ rootDir } = {}) {
   return createServer((request, response) => {
     const pathname = new URL(request.url, 'http://local').pathname;
     if (request.method === 'GET' && pathname === '/api/health') {
-      return sendJson(response, 200, {
-        ok: true,
-        realtime: env.OPENAI_API_KEY ? 'openai' : 'demo',
-      });
+      return sendJson(response, 200, { ok: true });
     }
     if (!['GET', 'HEAD'].includes(request.method)) return response.writeHead(405).end();
     const filePath = resolveStaticPath(rootDir, request.url);

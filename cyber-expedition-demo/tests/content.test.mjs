@@ -2,10 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   DISTRICTS,
-  HABITS,
-  SAFETY_RULES,
   SHIELD_PARTS,
-  TRUSTED_ADULT_ROLES,
   VIDEOS,
   getDistrict,
   getShieldPart,
@@ -20,7 +17,7 @@ test('showcase defines four districts, four shield parts, and five media slots',
 });
 
 test('content contains no working URLs or prompts for real personal data', () => {
-  const text = JSON.stringify({ DISTRICTS, VIDEOS, SAFETY_RULES, TRUSTED_ADULT_ROLES, HABITS });
+  const text = JSON.stringify({ DISTRICTS, VIDEOS, SHIELD_PARTS });
   assert.doesNotMatch(text, /https?:\/\//i);
   assert.doesNotMatch(text, /введи(?:те)? (?:свой|настоящ)/i);
 });

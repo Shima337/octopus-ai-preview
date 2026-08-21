@@ -62,7 +62,9 @@ test('lesson storage normalizes saved progress and recomputes derived rewards', 
     completedDistricts: ['mirror', 'mirror', 'traps', 'unknown'],
     unlockedDistricts: ['messages'],
     shieldParts: ['help'],
-    card: { rules: ['pause', 'pause', 'secret', 'adult'], adultRole: 'teacher', habit: 'check-photo' },
+    voiceMode: 'realtime',
+    voiceStatus: 'active',
+    card: { rules: ['pause'], adultRole: 'teacher', habit: 'check-photo' },
     injected: 'must not survive',
   };
   const storage = createMemoryStorage({ 'cyber-expedition-progress-v1': JSON.stringify(state) });
@@ -71,8 +73,21 @@ test('lesson storage normalizes saved progress and recomputes derived rewards', 
   assert.deepEqual(restored.completedDistricts, ['mirror', 'traps']);
   assert.deepEqual(restored.unlockedDistricts, ['mirror', 'locks', 'traps']);
   assert.deepEqual(restored.shieldParts, ['privacy', 'check']);
-  assert.deepEqual(restored.card, { rules: ['pause', 'secret', 'adult'], adultRole: 'teacher', habit: 'check-photo' });
+  assert.equal('voiceMode' in restored, false);
+  assert.equal('voiceStatus' in restored, false);
+  assert.equal('card' in restored, false);
   assert.equal('injected' in restored, false);
+});
+
+test('lesson storage rejects screens from cut voice and safety-card routes', () => {
+  for (const screen of ['voice-prepare', 'voice-live', 'voice-result', 'safety-card']) {
+    const storage = createMemoryStorage({
+      'cyber-expedition-progress-v1': JSON.stringify({
+        ...createInitialState(), mode: 'preview', screen,
+      }),
+    });
+    assert.equal(loadLesson(storage).screen, 'welcome');
+  }
 });
 
 test('lesson storage saves and resets persisted progress', () => {
