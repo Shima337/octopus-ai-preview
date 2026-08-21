@@ -8,10 +8,18 @@ export type AnalyticsEvent =
 declare global {
   interface Window {
     dataLayer?: { push(event: AnalyticsEvent): unknown };
+    fbq?: (...args: unknown[]) => void;
   }
 }
 
 export function track(event: AnalyticsEvent): void {
   window.dispatchEvent(new CustomEvent('octopus:analytics', { detail: event }));
   window.dataLayer?.push(event);
+
+  if (event.name === 'telegram_cta_click') {
+    window.fbq?.('track', 'Lead', {
+      content_name: event.name,
+      button_location: event.placement,
+    });
+  }
 }

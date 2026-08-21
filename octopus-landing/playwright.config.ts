@@ -23,7 +23,7 @@ export default defineConfig({
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: true,
     env: {
-      VITE_TELEGRAM_BOT_URL: 'https://t.me/octopus_test_bot',
+      VITE_TELEGRAM_BOT_URL: 'https://web.ct-bratan.by/api/marketing/click?funnel=learning_path',
     },
   },
 });

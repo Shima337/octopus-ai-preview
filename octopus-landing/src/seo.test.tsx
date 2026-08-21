@@ -18,5 +18,8 @@ it('contains search and social metadata', () => {
   expect(html).toContain('property="og:image:height" content="630"');
   expect(html).toMatch(/property="og:image:alt" content="[^"]*ЦЭ\/ЦТ[^"]*49 BYN[^"]*"/);
   expect(html).toContain('name="twitter:card" content="summary_large_image"');
+  expect(html).toContain("fbq('init', '1364883674605100')");
+  expect(html).toContain("fbq('track', 'PageView')");
+  expect(html).toContain('tr?id=1364883674605100&ev=PageView&noscript=1');
   expect(hero).toContain("assetPath('/media/lyudmila.webp')");
 });
