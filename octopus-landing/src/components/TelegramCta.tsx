@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { siteContent } from '../config/content';
 import { track, type AnalyticsEvent } from '../lib/analytics';
+import { buildMarketingClickHref } from '../lib/marketingClick';
 
 type TelegramPlacement = Extract<AnalyticsEvent, { name: 'telegram_cta_click' }>['placement'];
 
@@ -18,7 +19,9 @@ function getTelegramHref(placement: TelegramPlacement): string {
     const isHttpsBotLink = url.protocol === 'https:' && url.hostname === 't.me' && /^\/[A-Za-z0-9_]+\/?$/.test(url.pathname);
     const isTelegramDeepLink = url.protocol === 'tg:' && url.hostname === 'resolve' && /^[A-Za-z0-9_]+$/.test(url.searchParams.get('domain') ?? '');
 
-    if (!isHttpsBotLink && !isTelegramDeepLink) return configuredUrl || '#telegram';
+    if (!isHttpsBotLink && !isTelegramDeepLink) {
+      return buildMarketingClickHref(configuredUrl, window.location.search, placement);
+    }
 
     const utmValues = ['utm_source', 'utm_medium', 'utm_campaign']
       .map((name) => new URLSearchParams(window.location.search).get(name))

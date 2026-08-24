@@ -1,10 +1,10 @@
 # Octopus AI public-release gate
 
-**STOP:** do not publish or open traffic while any owner-supplied item below is unchecked. `https://t.me/octopus_test_bot` may be used only for local build and test verification; it is not a release URL.
+**STOP:** do not publish or open traffic while any owner-supplied item below is unchecked. Production must use the Marketing Click URL; `https://t.me/octopus_test_bot` may be used only for local draft build and test verification.
 
 ## Owner-supplied content, consent, and configuration
 
-- [ ] Supply and verify the real production Telegram bot URL.
+- [ ] Verify `https://web.ct-bratan.by/api/marketing/click?funnel=learning_path` as the production CTA URL; direct Telegram URLs are forbidden in a release build.
 - [ ] Confirm the advertised prices: 49 BYN/month for the AI tutor and 199 BYN/month for the live course.
 - [ ] Confirm the exact free-week eligibility, billing, cancellation, and renewal terms shown to visitors.
 - [ ] Supply and approve the offer that replaces the “through 31 August 2026” promotion after it expires.
@@ -22,6 +22,7 @@
 - [ ] Deployed cache rules are verified: `dist/media/` uses the approved long-lived/purge-or-version policy, while `/og-image.jpg` and `/favicon.svg` revalidate or use a shorter lifetime and are purged when replaced.
 - [ ] Deployed site is checked on real current iOS/Safari and Android/Chrome devices at supported phone widths.
 - [ ] Every CTA, legal link, media control, and external link is checked on the deployed production URL.
+- [ ] Each CTA preserves incoming UTM/click/ad fields, retains advertising `placement`, and adds the exact trusted `landing_surface=octopus_ai` plus `landing_cta=hero|games|pricing|final`; direct visits add no invented campaign values.
 - [ ] Browser consoles and network panels are clean on the deployed production URL; analytics events reach the configured provider without leaking sensitive data.
 - [ ] Mobile Lighthouse Accessibility is at least 90.
 - [ ] Mobile Lighthouse Best Practices is at least 90.

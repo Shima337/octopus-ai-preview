@@ -18,8 +18,14 @@ const forbiddenNamePatterns = isDraftValidation
   : [...placeholderNamePatterns, ...nonProductionNamePatterns];
 const botName = botUrl.match(telegramUrlPattern)?.[1];
 const isCampaignClick = campaignClickPattern.test(botUrl);
+const hasForbiddenBotName = botName && forbiddenNamePatterns.some((pattern) => pattern.test(botName));
+const isValid = isDraftValidation
+  ? (isCampaignClick || Boolean(botName && !hasForbiddenBotName))
+  : isCampaignClick;
 
-if ((!botName && !isCampaignClick) || (botName && forbiddenNamePatterns.some((pattern) => pattern.test(botName)))) {
-  console.error('A real VITE_TELEGRAM_BOT_URL is required for production.');
+if (!isValid) {
+  console.error(isDraftValidation
+    ? 'A valid VITE_TELEGRAM_BOT_URL is required for a draft build.'
+    : 'Marketing Click URL is required for production.');
   process.exitCode = 1;
 }

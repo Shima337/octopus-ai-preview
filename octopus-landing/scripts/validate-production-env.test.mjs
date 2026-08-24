@@ -52,11 +52,11 @@ it.each([
   const result = runValidator({ botUrl });
 
   expect(result.status).toBe(1);
-  expect(result.stderr).toContain('A real VITE_TELEGRAM_BOT_URL is required for production.');
+  expect(result.stderr).toContain('Marketing Click URL is required for production.');
 });
 
 it('loads VITE_TELEGRAM_BOT_URL from a Vite-compatible .env.local file', () => {
-  const cwd = createEnvDirectory('VITE_TELEGRAM_BOT_URL=https://t.me/octopus_release_bot\n');
+  const cwd = createEnvDirectory('VITE_TELEGRAM_BOT_URL=https://web.ct-bratan.by/api/marketing/click?funnel=learning_path\n');
 
   const result = runValidator({ cwd });
 
@@ -72,7 +72,7 @@ it('accepts the configured campaign tracking URL', () => {
 it('gives an explicit shell value precedence over .env.local', () => {
   const cwd = createEnvDirectory('VITE_TELEGRAM_BOT_URL=https://t.me/example_bot\n');
 
-  const result = runValidator({ botUrl: 'https://t.me/octopus_release_bot', cwd });
+  const result = runValidator({ botUrl: 'https://web.ct-bratan.by/api/marketing/click?funnel=learning_path', cwd });
 
   expect(result.status).toBe(0);
 });
@@ -85,5 +85,17 @@ it('allows known test URLs only through the explicit draft validation path', () 
   });
 
   expect(releaseResult.status).toBe(1);
+  expect(draftResult.status).toBe(0);
+});
+
+it('rejects every direct Telegram URL for a production build', () => {
+  const releaseResult = runValidator({ botUrl: 'https://t.me/octopus_release_bot' });
+  const draftResult = runValidator({
+    botUrl: 'https://t.me/octopus_release_bot',
+    args: ['--draft'],
+  });
+
+  expect(releaseResult.status).toBe(1);
+  expect(releaseResult.stderr).toContain('Marketing Click URL is required for production.');
   expect(draftResult.status).toBe(0);
 });

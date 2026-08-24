@@ -1,11 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const port = process.env.PLAYWRIGHT_PORT ?? '4173';
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
   reporter: 'line',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL,
     trace: 'retain-on-failure',
   },
   projects: [
@@ -19,9 +22,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 4173',
-    url: 'http://127.0.0.1:4173',
-    reuseExistingServer: true,
+    command: `npm run dev -- --host 127.0.0.1 --port ${port}`,
+    url: baseURL,
+    reuseExistingServer: false,
     env: {
       VITE_TELEGRAM_BOT_URL: 'https://web.ct-bratan.by/api/marketing/click?funnel=learning_path',
     },
